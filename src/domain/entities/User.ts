@@ -24,7 +24,7 @@ export class User {
     if (!EMAIL_PATTERN.test(props.email)) {
       return Result.fail(new InvalidUserError(`invalid email: ${props.email}`))
     }
-    return Result.ok(new User(props))
+    return Result.ok(new User({ ...props }))
   }
 
   get id(): string {

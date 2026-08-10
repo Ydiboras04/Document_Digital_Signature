@@ -45,4 +45,12 @@ describe('PublicKey', () => {
     expect(secondCall[0]).toBe(1)
     expect(secondCall[1]).toBe(2)
   })
+
+  it('equals compares by byte value', () => {
+    const a = PublicKey.create(new Uint8Array([1, 2, 3, 4])).value
+    const b = PublicKey.create(new Uint8Array([1, 2, 3, 4])).value
+    const c = PublicKey.create(new Uint8Array([1, 2, 3, 5])).value
+    expect(a.equals(b)).toBe(true)
+    expect(a.equals(c)).toBe(false)
+  })
 })

@@ -14,4 +14,16 @@ export class SignatureBytes {
   toBytes(): Uint8Array {
     return this.bytes.slice()
   }
+
+  equals(other: SignatureBytes): boolean {
+    if (this.bytes.length !== other.bytes.length) {
+      return false
+    }
+    for (let i = 0; i < this.bytes.length; i++) {
+      if (this.bytes[i] !== other.bytes[i]) {
+        return false
+      }
+    }
+    return true
+  }
 }

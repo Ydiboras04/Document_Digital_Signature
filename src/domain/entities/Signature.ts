@@ -24,7 +24,7 @@ export class Signature {
     if (!props.userId) {
       return Result.fail(new InvalidSignatureError('userId must not be empty'))
     }
-    return Result.ok(new Signature(props))
+    return Result.ok(new Signature({ ...props, signedAt: new Date(props.signedAt.getTime()) }))
   }
 
   get id(): string {
@@ -48,6 +48,6 @@ export class Signature {
   }
 
   get signedAt(): Date {
-    return this.props.signedAt
+    return new Date(this.props.signedAt.getTime())
   }
 }

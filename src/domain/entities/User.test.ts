@@ -34,4 +34,20 @@ describe('User', () => {
     expect(result.isFail()).toBe(true)
     expect(result.error.message).toContain('email')
   })
+
+  it('is immutable to mutations of the caller-supplied props object', () => {
+    const props = {
+      id: 'user-1',
+      username: 'alice',
+      email: 'alice@example.com',
+      publicKey: aPublicKey()
+    }
+    const user = User.create(props).value
+
+    props.username = 'mutated'
+    props.email = 'mutated@example.com'
+
+    expect(user.username).toBe('alice')
+    expect(user.email).toBe('alice@example.com')
+  })
 })

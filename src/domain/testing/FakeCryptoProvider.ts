@@ -27,6 +27,6 @@ export class FakeCryptoProvider implements CryptoProvider {
 
   verify(publicKey: PublicKey, message: Hash, signature: SignatureBytes): boolean {
     const expected = this.sign(publicKey, message)
-    return Buffer.from(expected.toBytes()).equals(Buffer.from(signature.toBytes()))
+    return expected.equals(signature)
   }
 }

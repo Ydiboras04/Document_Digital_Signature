@@ -69,4 +69,54 @@ describe('Signature', () => {
     })
     expect(result.isFail()).toBe(true)
   })
+
+  it('is immutable to mutations of the caller-supplied props object', () => {
+    const props = {
+      id: 'sig-1',
+      documentId: 'doc-1',
+      userId: 'user-1',
+      previousSignatureId: null as string | null,
+      signatureData: someBytes(),
+      signedAt: new Date('2026-08-10T00:00:00Z')
+    }
+    const signature = Signature.create(props).value
+
+    props.userId = 'mutated-user'
+    props.documentId = 'mutated-doc'
+
+    expect(signature.userId).toBe('user-1')
+    expect(signature.documentId).toBe('doc-1')
+  })
+
+  it('signedAt getter returns a copy that cannot be mutated to affect the entity', () => {
+    const signature = Signature.create({
+      id: 'sig-1',
+      documentId: 'doc-1',
+      userId: 'user-1',
+      previousSignatureId: null,
+      signatureData: someBytes(),
+      signedAt: new Date('2026-08-10T00:00:00Z')
+    }).value
+
+    const firstRead = signature.signedAt
+    firstRead.setFullYear(1999)
+
+    expect(signature.signedAt.getFullYear()).toBe(2026)
+  })
+
+  it('is unaffected by mutations to the signedAt Date object passed into create()', () => {
+    const originalDate = new Date('2026-08-10T00:00:00Z')
+    const signature = Signature.create({
+      id: 'sig-1',
+      documentId: 'doc-1',
+      userId: 'user-1',
+      previousSignatureId: null,
+      signatureData: someBytes(),
+      signedAt: originalDate
+    }).value
+
+    originalDate.setFullYear(1999)
+
+    expect(signature.signedAt.getFullYear()).toBe(2026)
+  })
 })

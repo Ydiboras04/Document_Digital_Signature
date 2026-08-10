@@ -52,4 +52,23 @@ describe('Document', () => {
     })
     expect(result.isFail()).toBe(true)
   })
+
+  it('is immutable to mutations of the caller-supplied props object', () => {
+    const props = {
+      id: 'doc-1',
+      title: 'Contract',
+      filePath: '/files/contract.pdf',
+      originalHash: aHash(),
+      uploaderId: 'user-1'
+    }
+    const document = Document.create(props).value
+
+    props.title = 'Mutated Title'
+    props.filePath = '/files/mutated.pdf'
+    props.uploaderId = 'user-2'
+
+    expect(document.title).toBe('Contract')
+    expect(document.filePath).toBe('/files/contract.pdf')
+    expect(document.uploaderId).toBe('user-1')
+  })
 })

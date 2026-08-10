@@ -26,7 +26,7 @@ export class Document {
     if (!props.uploaderId) {
       return Result.fail(new InvalidDocumentError('uploaderId must not be empty'))
     }
-    return Result.ok(new Document(props))
+    return Result.ok(new Document({ ...props }))
   }
 
   get id(): string {

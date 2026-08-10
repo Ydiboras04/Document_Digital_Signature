@@ -31,15 +31,31 @@ function aSignature(overrides: Partial<{ id: string; userId: string; previousSig
 describe('SignatureChainService.assertCanSign', () => {
   it('allows a user who has not yet signed', () => {
     const service = new SignatureChainService(new FakeCryptoProvider())
-    const result = service.assertCanSign([aSignature({ userId: 'user-2' })], 'user-1')
+    const result = service.assertCanSign(aDocument(), [aSignature({ userId: 'user-2' })], 'user-1')
     expect(result.isOk()).toBe(true)
   })
 
   it('rejects a user who has already signed', () => {
     const service = new SignatureChainService(new FakeCryptoProvider())
-    const result = service.assertCanSign([aSignature({ userId: 'user-1' })], 'user-1')
+    const result = service.assertCanSign(aDocument(), [aSignature({ userId: 'user-1' })], 'user-1')
     expect(result.isFail()).toBe(true)
     expect(result.error.message).toContain('user-1')
+  })
+
+  it('ignores signatures belonging to a different document when checking for duplicates', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const otherDocSignature = Signature.create({
+      id: 'sig-other-doc',
+      documentId: 'doc-2',
+      userId: 'user-1',
+      previousSignatureId: null,
+      signatureData: SignatureBytes.create(new Uint8Array([1, 2, 3])).value,
+      signedAt: new Date('2026-08-10T00:00:00Z')
+    }).value
+
+    const result = service.assertCanSign(aDocument(), [otherDocSignature], 'user-1')
+
+    expect(result.isOk()).toBe(true)
   })
 })
 
@@ -182,5 +198,26 @@ describe('SignatureChainService.verifyChain', () => {
 
     expect(result.isFail()).toBe(true)
     expect(result.error.message).toContain('user-1')
+  })
+
+  it('fails when a signature belongs to a different document', () => {
+    const crypto = new FakeCryptoProvider()
+    const service = new SignatureChainService(crypto)
+    const document = aDocument()
+    const { signatures, publicKeysByUserId } = buildValidChain(crypto, document, ['user-1', 'user-2'])
+
+    const mismatchedDocSignature = Signature.create({
+      id: signatures[1].id,
+      documentId: 'some-other-document-id',
+      userId: signatures[1].userId,
+      previousSignatureId: signatures[1].previousSignatureId,
+      signatureData: signatures[1].signatureData,
+      signedAt: signatures[1].signedAt
+    }).value
+
+    const result = service.verifyChain(document, [signatures[0], mismatchedDocSignature], publicKeysByUserId)
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
   })
 })

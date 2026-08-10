@@ -17,8 +17,13 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
 export class SignatureChainService {
   constructor(private readonly crypto: CryptoProvider) {}
 
-  assertCanSign(existingSignatures: Signature[], userId: string): Result<true, DuplicateSignatureError> {
-    const alreadySigned = existingSignatures.some((s) => s.userId === userId)
+  assertCanSign(
+    document: Document,
+    existingSignatures: Signature[],
+    userId: string
+  ): Result<true, DuplicateSignatureError> {
+    const signaturesForDocument = existingSignatures.filter((s) => s.documentId === document.id)
+    const alreadySigned = signaturesForDocument.some((s) => s.userId === userId)
     if (alreadySigned) {
       return Result.fail(new DuplicateSignatureError(userId))
     }
@@ -41,6 +46,10 @@ export class SignatureChainService {
     let previous: Signature | null = null
 
     for (const signature of orderedSignatures) {
+      if (signature.documentId !== document.id) {
+        return Result.fail(new BrokenChainError(signature.id, 'signature does not belong to this document'))
+      }
+
       const expectedPreviousId = previous === null ? null : previous.id
       if (signature.previousSignatureId !== expectedPreviousId) {
         return Result.fail(
