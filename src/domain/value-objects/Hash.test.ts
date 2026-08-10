@@ -29,4 +29,34 @@ describe('Hash', () => {
     expect(a.equals(b)).toBe(true)
     expect(a.equals(c)).toBe(false)
   })
+
+  it('is immutable to mutations via caller-supplied array', () => {
+    const originalBytes = new Uint8Array(32).fill(42)
+    const hash = Hash.create(originalBytes).value
+    const originalValue = Array.from(hash.toBytes())
+
+    // Mutate the original array after Hash creation
+    originalBytes[0] = 99
+    originalBytes[15] = 88
+
+    // Hash should be unaffected
+    const afterMutation = hash.toBytes()
+    expect(afterMutation).toEqual(new Uint8Array(originalValue))
+  })
+
+  it('is immutable to mutations via toBytes() return value', () => {
+    const bytes = new Uint8Array(32).fill(42)
+    const hash = Hash.create(bytes).value
+
+    // Mutate the array returned by toBytes()
+    const returnedArray = hash.toBytes()
+    returnedArray[0] = 99
+    returnedArray[15] = 88
+
+    // Hash's toBytes() should still return the original bytes
+    const secondCall = hash.toBytes()
+    expect(secondCall).toEqual(bytes)
+    expect(secondCall[0]).toBe(42)
+    expect(secondCall[15]).toBe(42)
+  })
 })

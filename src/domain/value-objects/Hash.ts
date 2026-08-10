@@ -12,11 +12,11 @@ export class Hash {
         new InvalidValueError('Hash', `must be exactly ${SHA256_BYTE_LENGTH} bytes (SHA-256 output), got ${bytes.length}`)
       )
     }
-    return Result.ok(new Hash(bytes))
+    return Result.ok(new Hash(new Uint8Array(bytes)))
   }
 
   toBytes(): Uint8Array {
-    return this.bytes
+    return this.bytes.slice()
   }
 
   toHex(): string {
