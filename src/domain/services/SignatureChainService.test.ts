@@ -71,3 +71,116 @@ describe('SignatureChainService.buildSigningPayload', () => {
     expect(payload.equals(crypto.hash(expectedInput))).toBe(true)
   })
 })
+
+import { PublicKey } from '../value-objects/PublicKey'
+import { BrokenChainError } from '../errors/BrokenChainError'
+
+function buildValidChain(crypto: FakeCryptoProvider, document: Document, userIds: string[]) {
+  const publicKeysByUserId = new Map<string, PublicKey>()
+  const signatures: Signature[] = []
+  let previous: Signature | null = null
+
+  for (const [index, userId] of userIds.entries()) {
+    const publicKey = PublicKey.create(new Uint8Array([index + 1, index + 2, index + 3])).value
+    publicKeysByUserId.set(userId, publicKey)
+
+    const message =
+      previous === null
+        ? crypto.hash(document.originalHash.toBytes())
+        : crypto.hash(
+            (() => {
+              const combined = new Uint8Array(
+                document.originalHash.toBytes().length + previous!.signatureData.toBytes().length
+              )
+              combined.set(document.originalHash.toBytes(), 0)
+              combined.set(previous!.signatureData.toBytes(), document.originalHash.toBytes().length)
+              return combined
+            })()
+          )
+
+    const signatureData = crypto.sign(publicKey, message)
+    const signature: Signature = Signature.create({
+      id: `sig-${index + 1}`,
+      documentId: document.id,
+      userId,
+      previousSignatureId: previous?.id ?? null,
+      signatureData,
+      signedAt: new Date(2026, 7, 10, 0, index)
+    }).value
+
+    signatures.push(signature)
+    previous = signature
+  }
+
+  return { signatures, publicKeysByUserId }
+}
+
+describe('SignatureChainService.verifyChain', () => {
+  it('verifies a valid chain of three signatures', () => {
+    const crypto = new FakeCryptoProvider()
+    const service = new SignatureChainService(crypto)
+    const document = aDocument()
+    const { signatures, publicKeysByUserId } = buildValidChain(crypto, document, ['user-1', 'user-2', 'user-3'])
+
+    const result = service.verifyChain(document, signatures, publicKeysByUserId)
+
+    expect(result.isOk()).toBe(true)
+  })
+
+  it('fails when a signature was tampered with (verification mismatch)', () => {
+    const crypto = new FakeCryptoProvider()
+    const service = new SignatureChainService(crypto)
+    const document = aDocument()
+    const { signatures, publicKeysByUserId } = buildValidChain(crypto, document, ['user-1', 'user-2'])
+
+    const tampered = Signature.create({
+      id: signatures[1].id,
+      documentId: signatures[1].documentId,
+      userId: signatures[1].userId,
+      previousSignatureId: signatures[1].previousSignatureId,
+      signatureData: SignatureBytes.create(new Uint8Array([9, 9, 9, 9])).value,
+      signedAt: signatures[1].signedAt
+    }).value
+    const chainWithTamperedSignature = [signatures[0], tampered]
+
+    const result = service.verifyChain(document, chainWithTamperedSignature, publicKeysByUserId)
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+    expect(result.error.message).toContain(tampered.id)
+  })
+
+  it('fails when previousSignatureId does not match actual chain order', () => {
+    const crypto = new FakeCryptoProvider()
+    const service = new SignatureChainService(crypto)
+    const document = aDocument()
+    const { signatures, publicKeysByUserId } = buildValidChain(crypto, document, ['user-1', 'user-2'])
+
+    const misordered = Signature.create({
+      id: signatures[1].id,
+      documentId: signatures[1].documentId,
+      userId: signatures[1].userId,
+      previousSignatureId: 'sig-does-not-exist',
+      signatureData: signatures[1].signatureData,
+      signedAt: signatures[1].signedAt
+    }).value
+
+    const result = service.verifyChain(document, [signatures[0], misordered], publicKeysByUserId)
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+  })
+
+  it('fails when no public key is registered for a signer', () => {
+    const crypto = new FakeCryptoProvider()
+    const service = new SignatureChainService(crypto)
+    const document = aDocument()
+    const { signatures, publicKeysByUserId } = buildValidChain(crypto, document, ['user-1'])
+    publicKeysByUserId.delete('user-1')
+
+    const result = service.verifyChain(document, signatures, publicKeysByUserId)
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error.message).toContain('user-1')
+  })
+})
