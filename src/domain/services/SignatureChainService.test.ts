@@ -243,3 +243,78 @@ describe('SignatureChainService.findTip', () => {
     expect(service.findTip([third, first, second])).toBe(third)
   })
 })
+
+describe('SignatureChainService.orderChain', () => {
+  it('returns an empty array for an empty list', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const result = service.orderChain([])
+    expect(result.isOk()).toBe(true)
+    expect(result.value).toEqual([])
+  })
+
+  it('returns a single signature as-is', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const only = aSignature({ id: 'sig-1', previousSignatureId: null })
+    const result = service.orderChain([only])
+    expect(result.isOk()).toBe(true)
+    expect(result.value).toEqual([only])
+  })
+
+  it('reconstructs order from a shuffled input', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const first = aSignature({ id: 'sig-1', userId: 'user-1', previousSignatureId: null })
+    const second = aSignature({ id: 'sig-2', userId: 'user-2', previousSignatureId: 'sig-1' })
+    const third = aSignature({ id: 'sig-3', userId: 'user-3', previousSignatureId: 'sig-2' })
+
+    const result = service.orderChain([third, first, second])
+
+    expect(result.isOk()).toBe(true)
+    expect(result.value.map((s) => s.id)).toEqual(['sig-1', 'sig-2', 'sig-3'])
+  })
+
+  it('fails when no signature has a null previousSignatureId', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const a = aSignature({ id: 'sig-1', previousSignatureId: 'sig-does-not-exist' })
+
+    const result = service.orderChain([a])
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+  })
+
+  it('fails when more than one signature has a null previousSignatureId', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const a = aSignature({ id: 'sig-1', userId: 'user-1', previousSignatureId: null })
+    const b = aSignature({ id: 'sig-2', userId: 'user-2', previousSignatureId: null })
+
+    const result = service.orderChain([a, b])
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+  })
+
+  it('fails when a signature is unreachable from the head', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const first = aSignature({ id: 'sig-1', userId: 'user-1', previousSignatureId: null })
+    const second = aSignature({ id: 'sig-2', userId: 'user-2', previousSignatureId: 'sig-1' })
+    const orphan = aSignature({ id: 'sig-3', userId: 'user-3', previousSignatureId: 'sig-does-not-exist' })
+
+    const result = service.orderChain([first, second, orphan])
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+    expect(result.error.message).toContain('sig-3')
+  })
+
+  it('fails when a cycle is detected', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const head = aSignature({ id: 'sig-1', userId: 'user-1', previousSignatureId: null })
+    const middle = aSignature({ id: 'sig-2', userId: 'user-2', previousSignatureId: 'sig-1' })
+    const duplicateOfHead = aSignature({ id: 'sig-1', userId: 'user-3', previousSignatureId: 'sig-2' })
+
+    const result = service.orderChain([head, middle, duplicateOfHead])
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(BrokenChainError)
+  })
+})
