@@ -73,4 +73,17 @@ export class SignatureChainService {
 
     return Result.ok(true)
   }
+
+  findTip(signatures: Signature[]): Signature | null {
+    if (signatures.length === 0) {
+      return null
+    }
+    const referencedIds = new Set(
+      signatures
+        .map((s) => s.previousSignatureId)
+        .filter((id): id is string => id !== null)
+    )
+    return signatures.find((s) => !referencedIds.has(s.id)) ?? null
+  }
+
 }

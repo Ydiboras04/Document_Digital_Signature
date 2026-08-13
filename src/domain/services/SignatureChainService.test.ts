@@ -221,3 +221,25 @@ describe('SignatureChainService.verifyChain', () => {
     expect(result.error).toBeInstanceOf(BrokenChainError)
   })
 })
+
+describe('SignatureChainService.findTip', () => {
+  it('returns null for an empty list', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    expect(service.findTip([])).toBeNull()
+  })
+
+  it('returns the only signature when there is exactly one', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const only = aSignature({ id: 'sig-1', previousSignatureId: null })
+    expect(service.findTip([only])).toBe(only)
+  })
+
+  it('returns the signature that nothing else points to, regardless of array order', () => {
+    const service = new SignatureChainService(new FakeCryptoProvider())
+    const first = aSignature({ id: 'sig-1', userId: 'user-1', previousSignatureId: null })
+    const second = aSignature({ id: 'sig-2', userId: 'user-2', previousSignatureId: 'sig-1' })
+    const third = aSignature({ id: 'sig-3', userId: 'user-3', previousSignatureId: 'sig-2' })
+
+    expect(service.findTip([third, first, second])).toBe(third)
+  })
+})
