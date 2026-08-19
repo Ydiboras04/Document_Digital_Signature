@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 
-class NextContent extends StatelessWidget {
+import '../pages/document_details_page.dart';
+
+class NextContent extends StatefulWidget {
   const NextContent({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final documents = [
-      'Contract_Proposal.pdf',
-      'Invoice_2026_08.pdf',
-      'Employment_Agreement.pdf',
-      'Confidentiality_Notice.pdf',
-    ];
+  State<NextContent> createState() => _NextContentState();
+}
 
+class _NextContentState extends State<NextContent> {
+  final documents = [
+    'Contract_Proposal.pdf',
+    'Invoice_2026_08.pdf',
+    'Employment_Agreement.pdf',
+    'Confidentiality_Notice.pdf',
+  ];
+
+  String? selectedDocument;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -36,10 +45,16 @@ class NextContent extends StatelessWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final document = documents[index];
+                final isSelected = selectedDocument == document;
+
                 return Card(
-                  elevation: 1,
+                  elevation: isSelected ? 2 : 1,
+                  color: isSelected ? Colors.blue.shade50 : null,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
+                    side: isSelected
+                        ? const BorderSide(color: Colors.blue, width: 1.5)
+                        : BorderSide.none,
                   ),
                   child: ListTile(
                     leading: Container(
@@ -55,12 +70,21 @@ class NextContent extends StatelessWidget {
                       ),
                     ),
                     title: Text(document),
-                    subtitle: const Text('Ready for signature'),
+                    subtitle: Text(
+                      isSelected ? 'Selected for signing' : 'Ready for signature',
+                    ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Selected: $document'),
+                      setState(() {
+                        selectedDocument = document;
+                      });
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DocumentDetailsPage(
+                            documentName: document,
+                          ),
                         ),
                       );
                     },
