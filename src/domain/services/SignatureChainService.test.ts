@@ -23,7 +23,7 @@ function aSignature(overrides: Partial<{ id: string; userId: string; previousSig
     documentId: 'doc-1',
     userId: overrides.userId ?? 'user-1',
     previousSignatureId: overrides.previousSignatureId ?? null,
-    signatureData: SignatureBytes.create(new Uint8Array([1, 2, 3])).value,
+    signatureData: SignatureBytes.create(new Uint8Array(64).fill(1)).value,
     signedAt: new Date('2026-08-10T00:00:00Z')
   }).value
 }
@@ -49,7 +49,7 @@ describe('SignatureChainService.assertCanSign', () => {
       documentId: 'doc-2',
       userId: 'user-1',
       previousSignatureId: null,
-      signatureData: SignatureBytes.create(new Uint8Array([1, 2, 3])).value,
+      signatureData: SignatureBytes.create(new Uint8Array(64).fill(1)).value,
       signedAt: new Date('2026-08-10T00:00:00Z')
     }).value
 
@@ -97,7 +97,7 @@ function buildValidChain(crypto: FakeCryptoProvider, document: Document, userIds
   let previous: Signature | null = null
 
   for (const [index, userId] of userIds.entries()) {
-    const publicKey = PublicKey.create(new Uint8Array([index + 1, index + 2, index + 3])).value
+    const publicKey = PublicKey.create(new Uint8Array(32).fill(index + 1)).value
     publicKeysByUserId.set(userId, publicKey)
 
     const message =
@@ -154,7 +154,7 @@ describe('SignatureChainService.verifyChain', () => {
       documentId: signatures[1].documentId,
       userId: signatures[1].userId,
       previousSignatureId: signatures[1].previousSignatureId,
-      signatureData: SignatureBytes.create(new Uint8Array([9, 9, 9, 9])).value,
+      signatureData: SignatureBytes.create(new Uint8Array(64).fill(9)).value,
       signedAt: signatures[1].signedAt
     }).value
     const chainWithTamperedSignature = [signatures[0], tampered]

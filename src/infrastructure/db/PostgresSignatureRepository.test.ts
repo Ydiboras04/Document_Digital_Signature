@@ -27,7 +27,7 @@ function aSignature(
     documentId,
     userId: overrides.userId ?? 'user-alice',
     previousSignatureId: overrides.previousSignatureId ?? null,
-    signatureData: SignatureBytes.create(new Uint8Array([1, 2, 3])).value,
+    signatureData: SignatureBytes.create(new Uint8Array(64).fill(1)).value,
     signedAt: new Date('2026-08-10T00:00:00Z')
   }).value
 }

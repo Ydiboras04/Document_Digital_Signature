@@ -30,7 +30,7 @@ function aUser(id: string, publicKeyByte: number): User {
     id,
     username: `user-${id}`,
     email: `${id}@example.com`,
-    publicKey: PublicKey.create(new Uint8Array([publicKeyByte])).value
+    publicKey: PublicKey.create(new Uint8Array(32).fill(publicKeyByte)).value
   }).value
 }
 
@@ -147,7 +147,7 @@ describe('VerifyDocumentUseCase', () => {
       documentId: document.id,
       userId: user.id,
       previousSignatureId: null,
-      signatureData: SignatureBytes.create(new Uint8Array([9, 9, 9, 9])).value,
+      signatureData: SignatureBytes.create(new Uint8Array(64).fill(9)).value,
       signedAt: new Date('2026-08-10T00:00:00Z')
     }).value
     signatureRepository.savedSignatures.push(tampered)

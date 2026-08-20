@@ -4,7 +4,7 @@ import { Signature } from './Signature'
 import { SignatureBytes } from '../value-objects/SignatureBytes'
 
 function someBytes(): SignatureBytes {
-  return SignatureBytes.create(new Uint8Array([1, 2, 3])).value
+  return SignatureBytes.create(new Uint8Array(64).fill(1)).value
 }
 
 describe('Signature', () => {

@@ -8,7 +8,7 @@ function aUser(id: string): User {
     id,
     username: `user-${id}`,
     email: `${id}@example.com`,
-    publicKey: PublicKey.create(new Uint8Array([1, 2, 3])).value
+    publicKey: PublicKey.create(new Uint8Array(32).fill(1)).value
   }).value
 }
 

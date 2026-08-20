@@ -34,7 +34,7 @@ describe('toSignatureJson', () => {
       documentId: 'doc-1',
       userId: 'user-1',
       previousSignatureId: null,
-      signatureData: SignatureBytes.create(new Uint8Array([1, 2, 3])).value,
+      signatureData: SignatureBytes.create(new Uint8Array(64).fill(1)).value,
       signedAt: new Date('2026-08-10T00:00:00Z')
     }).value
 
@@ -45,7 +45,7 @@ describe('toSignatureJson', () => {
       documentId: 'doc-1',
       userId: 'user-1',
       previousSignatureId: null,
-      signatureData: Buffer.from([1, 2, 3]).toString('base64'),
+      signatureData: Buffer.from(new Uint8Array(64).fill(1)).toString('base64'),
       signedAt: '2026-08-10T00:00:00.000Z'
     })
   })

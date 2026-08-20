@@ -22,7 +22,11 @@ export class FakeCryptoProvider implements CryptoProvider {
     const combined = new Uint8Array(publicKey.toBytes().length + message.toBytes().length)
     combined.set(publicKey.toBytes(), 0)
     combined.set(message.toBytes(), publicKey.toBytes().length)
-    return SignatureBytes.create(this.hash(combined).toBytes()).value
+    const hashBytes = this.hash(combined).toBytes()
+    const signatureBytes = new Uint8Array(64)
+    signatureBytes.set(hashBytes, 0)
+    signatureBytes.set(hashBytes, 32)
+    return SignatureBytes.create(signatureBytes).value
   }
 
   verify(publicKey: PublicKey, message: Hash, signature: SignatureBytes): boolean {

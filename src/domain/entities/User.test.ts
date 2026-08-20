@@ -3,7 +3,7 @@ import { User } from './User'
 import { PublicKey } from '../value-objects/PublicKey'
 
 function aPublicKey(): PublicKey {
-  return PublicKey.create(new Uint8Array([1, 2, 3])).value
+  return PublicKey.create(new Uint8Array(32).fill(1)).value
 }
 
 describe('User', () => {

@@ -33,7 +33,7 @@ function aUser(overrides: Partial<{ id: string; publicKey: PublicKey }> = {}): U
     id: overrides.id ?? 'user-1',
     username: 'alice',
     email: 'alice@example.com',
-    publicKey: overrides.publicKey ?? PublicKey.create(new Uint8Array([1, 2, 3])).value
+    publicKey: overrides.publicKey ?? PublicKey.create(new Uint8Array(32).fill(1)).value
   }).value
 }
 
@@ -94,8 +94,8 @@ describe('SignDocumentUseCase', () => {
   it('signs successfully as a subsequent signer, chaining onto the tip', async () => {
     const { crypto, documentRepository, userRepository, signatureRepository, useCase } = setup()
     const document = aDocument()
-    const firstUser = aUser({ id: 'user-1', publicKey: PublicKey.create(new Uint8Array([1, 2, 3])).value })
-    const secondUser = aUser({ id: 'user-2', publicKey: PublicKey.create(new Uint8Array([4, 5, 6])).value })
+    const firstUser = aUser({ id: 'user-1', publicKey: PublicKey.create(new Uint8Array(32).fill(1)).value })
+    const secondUser = aUser({ id: 'user-2', publicKey: PublicKey.create(new Uint8Array(32).fill(4)).value })
     await documentRepository.save(document)
     userRepository.users.push(firstUser, secondUser)
 
@@ -211,7 +211,7 @@ describe('SignDocumentUseCase', () => {
     const result = await useCase.execute({
       documentId: document.id,
       userId: user.id,
-      signatureBytes: new Uint8Array([9, 9, 9, 9])
+      signatureBytes: new Uint8Array(64).fill(9)
     })
 
     expect(result.isFail()).toBe(true)
