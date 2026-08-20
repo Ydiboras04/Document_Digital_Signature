@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import { createDependencies } from './composition.js'
 import { Ed25519CryptoProvider } from './Ed25519CryptoProvider.js'
 import { ed25519TestKeys, signWithTestKey } from './testing/ed25519TestKeys.js'
@@ -22,6 +23,19 @@ describe('createDependencies', () => {
     expect(result.isOk()).toBe(true)
     expect(result.value.title).toBe('Contract')
     expect(result.value.uploaderId).toBe('user-alice')
+  })
+
+  it('wires a working CreateUserUseCase', async () => {
+    const { createUserUseCase } = createDependencies()
+
+    const result = await createUserUseCase.execute({
+      username: 'dave',
+      email: `dave-${randomUUID()}@example.com`,
+      publicKeyBytes: new Uint8Array(32).fill(7)
+    })
+
+    expect(result.isOk()).toBe(true)
+    expect(result.value.username).toBe('dave')
   })
 
   it('supports a full upload -> sign -> verify round trip through the composed dependencies', async () => {
