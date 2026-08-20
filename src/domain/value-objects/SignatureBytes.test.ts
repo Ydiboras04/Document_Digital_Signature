@@ -2,9 +2,13 @@
 import { describe, it, expect } from 'vitest'
 import { SignatureBytes } from './SignatureBytes'
 
+function validSignatureBytes(): Uint8Array {
+  return Uint8Array.from({ length: 64 }, (_, i) => i + 1)
+}
+
 describe('SignatureBytes', () => {
-  it('creates valid signature bytes from a non-empty array', () => {
-    const bytes = new Uint8Array([9, 8, 7])
+  it('creates valid signature bytes from 64 bytes', () => {
+    const bytes = validSignatureBytes()
     const result = SignatureBytes.create(bytes)
     expect(result.isOk()).toBe(true)
     expect(result.value.toBytes()).toEqual(bytes)
@@ -16,40 +20,50 @@ describe('SignatureBytes', () => {
     expect(result.error.message).toContain('SignatureBytes')
   })
 
+  it('rejects a byte array that is too short', () => {
+    const result = SignatureBytes.create(new Uint8Array(63))
+    expect(result.isFail()).toBe(true)
+    expect(result.error.message).toContain('64')
+  })
+
+  it('rejects a byte array that is too long', () => {
+    const result = SignatureBytes.create(new Uint8Array(65))
+    expect(result.isFail()).toBe(true)
+    expect(result.error.message).toContain('64')
+  })
+
   it('is immutable to mutations via caller-supplied array', () => {
-    const originalBytes = new Uint8Array([9, 8, 7, 6])
+    const originalBytes = validSignatureBytes()
     const signatureBytes = SignatureBytes.create(originalBytes).value
     const originalValue = Array.from(signatureBytes.toBytes())
 
-    // Mutate the original array after SignatureBytes creation
     originalBytes[0] = 99
     originalBytes[1] = 88
 
-    // SignatureBytes should be unaffected
     const afterMutation = signatureBytes.toBytes()
     expect(afterMutation).toEqual(new Uint8Array(originalValue))
   })
 
   it('is immutable to mutations via toBytes() return value', () => {
-    const bytes = new Uint8Array([9, 8, 7, 6])
+    const bytes = validSignatureBytes()
     const signatureBytes = SignatureBytes.create(bytes).value
 
-    // Mutate the array returned by toBytes()
     const returnedArray = signatureBytes.toBytes()
     returnedArray[0] = 99
     returnedArray[1] = 88
 
-    // SignatureBytes's toBytes() should still return the original bytes
     const secondCall = signatureBytes.toBytes()
     expect(secondCall).toEqual(bytes)
-    expect(secondCall[0]).toBe(9)
-    expect(secondCall[1]).toBe(8)
+    expect(secondCall[0]).toBe(1)
+    expect(secondCall[1]).toBe(2)
   })
 
   it('equals compares by byte value', () => {
-    const a = SignatureBytes.create(new Uint8Array([1, 2, 3, 4])).value
-    const b = SignatureBytes.create(new Uint8Array([1, 2, 3, 4])).value
-    const c = SignatureBytes.create(new Uint8Array([1, 2, 3, 5])).value
+    const a = SignatureBytes.create(validSignatureBytes()).value
+    const b = SignatureBytes.create(validSignatureBytes()).value
+    const differentBytes = validSignatureBytes()
+    differentBytes[63] = 255
+    const c = SignatureBytes.create(differentBytes).value
     expect(a.equals(b)).toBe(true)
     expect(a.equals(c)).toBe(false)
   })
