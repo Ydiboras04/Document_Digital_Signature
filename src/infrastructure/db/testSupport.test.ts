@@ -21,8 +21,14 @@ describe('cleanDatabase and ensureSeedUsers', () => {
     await ensureSeedUsers()
 
     const allUsers = await db.select({ id: users.id }).from(users)
-    const ids = allUsers.map((u) => u.id).sort()
+    const ids = allUsers.map((u) => u.id)
 
-    expect(ids).toEqual(['user-alice', 'user-bob', 'user-carol'])
+    // Other tests (e.g. CreateUserUseCase's registration flow) can leave
+    // additional real users behind, since cleanDatabase() deliberately
+    // never touches `users` -- this only asserts the 3 seed ids are
+    // present, not that they're the only rows in the table.
+    expect(ids).toContain('user-alice')
+    expect(ids).toContain('user-bob')
+    expect(ids).toContain('user-carol')
   })
 })
