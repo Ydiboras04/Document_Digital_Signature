@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { PostgresUserRepository } from './PostgresUserRepository.js'
 import { cleanDatabase, ensureSeedUsers } from './testSupport.js'
+import { ed25519TestKeys } from '../testing/ed25519TestKeys.js'
 
 describe('PostgresUserRepository', () => {
   beforeEach(async () => {
@@ -17,7 +18,7 @@ describe('PostgresUserRepository', () => {
     expect(found!.id).toBe('user-alice')
     expect(found!.username).toBe('alice')
     expect(found!.email).toBe('alice@example.com')
-    expect(found!.publicKey.toBytes()).toEqual(new Uint8Array([1, 2, 3, 4]))
+    expect(found!.publicKey.toBytes()).toEqual(ed25519TestKeys.alice.publicKeyBytes)
   })
 
   it('returns null for an unknown id', async () => {

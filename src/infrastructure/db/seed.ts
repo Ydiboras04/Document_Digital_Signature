@@ -1,13 +1,14 @@
 import { db } from './connection.js'
 import { users } from './schema.js'
+import { ed25519TestKeys } from '../testing/ed25519TestKeys.js'
 
 async function seed() {
   await db
     .insert(users)
     .values([
-      { id: 'user-alice', username: 'alice', email: 'alice@example.com', publicKey: new Uint8Array([1, 2, 3, 4]) },
-      { id: 'user-bob', username: 'bob', email: 'bob@example.com', publicKey: new Uint8Array([5, 6, 7, 8]) },
-      { id: 'user-carol', username: 'carol', email: 'carol@example.com', publicKey: new Uint8Array([9, 10, 11, 12]) }
+      { id: 'user-alice', username: 'alice', email: 'alice@example.com', publicKey: ed25519TestKeys.alice.publicKeyBytes },
+      { id: 'user-bob', username: 'bob', email: 'bob@example.com', publicKey: ed25519TestKeys.bob.publicKeyBytes },
+      { id: 'user-carol', username: 'carol', email: 'carol@example.com', publicKey: ed25519TestKeys.carol.publicKeyBytes }
     ])
     .onConflictDoNothing()
 
