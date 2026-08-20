@@ -1,11 +1,10 @@
-import { InMemoryDocumentRepository } from './InMemoryDocumentRepository.js'
-import { InMemoryUserRepository } from './InMemoryUserRepository.js'
-import { InMemorySignatureRepository } from './InMemorySignatureRepository.js'
 import { InMemoryFileStorage } from './InMemoryFileStorage.js'
 import { RandomIdGenerator } from './RandomIdGenerator.js'
 import { SystemClock } from './SystemClock.js'
 import { InMemoryCryptoProvider } from './InMemoryCryptoProvider.js'
-import { seedUsers } from './seedUsers.js'
+import { PostgresDocumentRepository } from './db/PostgresDocumentRepository.js'
+import { PostgresUserRepository } from './db/PostgresUserRepository.js'
+import { PostgresSignatureRepository } from './db/PostgresSignatureRepository.js'
 import { SignatureChainService } from '../domain/services/SignatureChainService.js'
 import { UploadDocumentUseCase } from '../use-cases/upload-document/UploadDocumentUseCase.js'
 import { SignDocumentUseCase } from '../use-cases/sign-document/SignDocumentUseCase.js'
@@ -18,9 +17,9 @@ export interface Dependencies {
 }
 
 export function createDependencies(): Dependencies {
-  const documentRepository = new InMemoryDocumentRepository()
-  const userRepository = new InMemoryUserRepository(seedUsers)
-  const signatureRepository = new InMemorySignatureRepository()
+  const documentRepository = new PostgresDocumentRepository()
+  const userRepository = new PostgresUserRepository()
+  const signatureRepository = new PostgresSignatureRepository()
   const fileStorage = new InMemoryFileStorage()
   const idGenerator = new RandomIdGenerator()
   const clock = new SystemClock()

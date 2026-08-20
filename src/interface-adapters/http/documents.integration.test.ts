@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { ensureSeedUsers } from '../../infrastructure/db/testSupport.js'
 import { app } from './app.js'
 import { InMemoryCryptoProvider } from '../../infrastructure/InMemoryCryptoProvider.js'
 import { PublicKey } from '../../domain/value-objects/PublicKey.js'
+
+beforeAll(async () => {
+  await ensureSeedUsers()
+})
 
 async function uploadADocument() {
   const res = await app.request('/documents', {

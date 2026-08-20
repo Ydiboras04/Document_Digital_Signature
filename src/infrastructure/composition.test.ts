@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { createDependencies } from './composition.js'
 import { InMemoryCryptoProvider } from './InMemoryCryptoProvider.js'
 import { PublicKey } from '../domain/value-objects/PublicKey.js'
+import { cleanDatabase, ensureSeedUsers } from './db/testSupport.js'
 
 describe('createDependencies', () => {
+  beforeEach(async () => {
+    await cleanDatabase()
+    await ensureSeedUsers()
+  })
+
   it('wires a working UploadDocumentUseCase', async () => {
     const { uploadDocumentUseCase } = createDependencies()
 
