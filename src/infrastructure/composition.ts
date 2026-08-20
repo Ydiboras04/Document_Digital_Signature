@@ -1,4 +1,4 @@
-import { InMemoryFileStorage } from './InMemoryFileStorage.js'
+import { DiskFileStorage } from './DiskFileStorage.js'
 import { RandomIdGenerator } from './RandomIdGenerator.js'
 import { SystemClock } from './SystemClock.js'
 import { Ed25519CryptoProvider } from './Ed25519CryptoProvider.js'
@@ -20,7 +20,7 @@ export function createDependencies(): Dependencies {
   const documentRepository = new PostgresDocumentRepository()
   const userRepository = new PostgresUserRepository()
   const signatureRepository = new PostgresSignatureRepository()
-  const fileStorage = new InMemoryFileStorage()
+  const fileStorage = new DiskFileStorage()
   const idGenerator = new RandomIdGenerator()
   const clock = new SystemClock()
   const crypto = new Ed25519CryptoProvider()
