@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createDependencies } from './composition.js'
-import { InMemoryCryptoProvider } from './InMemoryCryptoProvider.js'
-import { PublicKey } from '../domain/value-objects/PublicKey.js'
+import { Ed25519CryptoProvider } from './Ed25519CryptoProvider.js'
+import { ed25519TestKeys, signWithTestKey } from './testing/ed25519TestKeys.js'
 import { cleanDatabase, ensureSeedUsers } from './db/testSupport.js'
 
 describe('createDependencies', () => {
@@ -26,7 +26,7 @@ describe('createDependencies', () => {
 
   it('supports a full upload -> sign -> verify round trip through the composed dependencies', async () => {
     const { uploadDocumentUseCase, signDocumentUseCase, verifyDocumentUseCase } = createDependencies()
-    const crypto = new InMemoryCryptoProvider()
+    const crypto = new Ed25519CryptoProvider()
 
     const uploadResult = await uploadDocumentUseCase.execute({
       title: 'Contract',
@@ -37,11 +37,7 @@ describe('createDependencies', () => {
     const document = uploadResult.value
 
     const message = crypto.hash(document.originalHash.toBytes())
-    const alicePublicKey = PublicKey.create(new Uint8Array([1, 2, 3, 4])).value
-    const combined = new Uint8Array(alicePublicKey.toBytes().length + message.toBytes().length)
-    combined.set(alicePublicKey.toBytes(), 0)
-    combined.set(message.toBytes(), alicePublicKey.toBytes().length)
-    const signatureBytes = crypto.hash(combined).toBytes()
+    const signatureBytes = signWithTestKey(ed25519TestKeys.alice, message.toBytes())
 
     const signResult = await signDocumentUseCase.execute({
       documentId: document.id,

@@ -1,7 +1,7 @@
 import { InMemoryFileStorage } from './InMemoryFileStorage.js'
 import { RandomIdGenerator } from './RandomIdGenerator.js'
 import { SystemClock } from './SystemClock.js'
-import { InMemoryCryptoProvider } from './InMemoryCryptoProvider.js'
+import { Ed25519CryptoProvider } from './Ed25519CryptoProvider.js'
 import { PostgresDocumentRepository } from './db/PostgresDocumentRepository.js'
 import { PostgresUserRepository } from './db/PostgresUserRepository.js'
 import { PostgresSignatureRepository } from './db/PostgresSignatureRepository.js'
@@ -23,7 +23,7 @@ export function createDependencies(): Dependencies {
   const fileStorage = new InMemoryFileStorage()
   const idGenerator = new RandomIdGenerator()
   const clock = new SystemClock()
-  const crypto = new InMemoryCryptoProvider()
+  const crypto = new Ed25519CryptoProvider()
   const signatureChainService = new SignatureChainService(crypto)
 
   const uploadDocumentUseCase = new UploadDocumentUseCase(crypto, fileStorage, idGenerator, documentRepository)

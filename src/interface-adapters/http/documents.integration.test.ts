@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { ensureSeedUsers } from '../../infrastructure/db/testSupport.js'
 import { app } from './app.js'
-import { InMemoryCryptoProvider } from '../../infrastructure/InMemoryCryptoProvider.js'
-import { PublicKey } from '../../domain/value-objects/PublicKey.js'
+import { Ed25519CryptoProvider } from '../../infrastructure/Ed25519CryptoProvider.js'
+import { ed25519TestKeys, signWithTestKey } from '../../infrastructure/testing/ed25519TestKeys.js'
 
 beforeAll(async () => {
   await ensureSeedUsers()
@@ -22,13 +22,9 @@ async function uploadADocument() {
 }
 
 function computeAliceSignatureBytes(originalHashHex: string): Uint8Array {
-  const crypto = new InMemoryCryptoProvider()
+  const crypto = new Ed25519CryptoProvider()
   const message = crypto.hash(Buffer.from(originalHashHex, 'hex'))
-  const alicePublicKey = PublicKey.create(new Uint8Array([1, 2, 3, 4])).value
-  const combined = new Uint8Array(alicePublicKey.toBytes().length + message.toBytes().length)
-  combined.set(alicePublicKey.toBytes(), 0)
-  combined.set(message.toBytes(), alicePublicKey.toBytes().length)
-  return crypto.hash(combined).toBytes()
+  return signWithTestKey(ed25519TestKeys.alice, message.toBytes())
 }
 
 describe('POST /documents', () => {
