@@ -29,4 +29,22 @@ describe('InMemoryUserRepository', () => {
 
     expect(found).toBeNull()
   })
+
+  it('finds a saved user by email', async () => {
+    const repository = new InMemoryUserRepository([])
+    const user = aUser('user-2')
+
+    await repository.save(user)
+    const found = await repository.findByEmail('user-2@example.com')
+
+    expect(found).toBe(user)
+  })
+
+  it('returns null when finding by an unknown email', async () => {
+    const repository = new InMemoryUserRepository([])
+
+    const found = await repository.findByEmail('missing@example.com')
+
+    expect(found).toBeNull()
+  })
 })

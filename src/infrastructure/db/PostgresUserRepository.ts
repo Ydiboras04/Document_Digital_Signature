@@ -19,4 +19,27 @@ export class PostgresUserRepository implements UserRepository {
       publicKey: PublicKey.create(row.publicKey).value
     }).value
   }
+
+  async save(user: User): Promise<void> {
+    await db.insert(users).values({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      publicKey: user.publicKey.toBytes()
+    })
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const rows = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    const row = rows[0]
+    if (row === undefined) {
+      return null
+    }
+    return User.create({
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      publicKey: PublicKey.create(row.publicKey).value
+    }).value
+  }
 }
