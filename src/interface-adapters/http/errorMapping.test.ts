@@ -8,6 +8,8 @@ import { UserNotFoundError } from '../../domain/errors/UserNotFoundError.js'
 import { DuplicateSignatureError } from '../../domain/errors/DuplicateSignatureError.js'
 import { SignatureVerificationFailedError } from '../../domain/errors/SignatureVerificationFailedError.js'
 import { BrokenChainError } from '../../domain/errors/BrokenChainError.js'
+import { InvalidUserError } from '../../domain/errors/InvalidUserError.js'
+import { DuplicateEmailError } from '../../domain/errors/DuplicateEmailError.js'
 
 describe('mapDomainErrorToResponse', () => {
   it('maps InvalidDocumentError to 400', () => {
@@ -27,6 +29,11 @@ describe('mapDomainErrorToResponse', () => {
     expect(result.status).toBe(400)
   })
 
+  it('maps InvalidUserError to 400', () => {
+    const result = mapDomainErrorToResponse(new InvalidUserError('username must not be empty'))
+    expect(result.status).toBe(400)
+  })
+
   it('maps DocumentNotFoundError to 404', () => {
     const result = mapDomainErrorToResponse(new DocumentNotFoundError('doc-1'))
     expect(result.status).toBe(404)
@@ -40,6 +47,11 @@ describe('mapDomainErrorToResponse', () => {
 
   it('maps DuplicateSignatureError to 409', () => {
     const result = mapDomainErrorToResponse(new DuplicateSignatureError('user-1'))
+    expect(result.status).toBe(409)
+  })
+
+  it('maps DuplicateEmailError to 409', () => {
+    const result = mapDomainErrorToResponse(new DuplicateEmailError('taken@example.com'))
     expect(result.status).toBe(409)
   })
 

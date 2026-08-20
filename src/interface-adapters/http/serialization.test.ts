@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { toDocumentJson, toSignatureJson, decodeBase64 } from './serialization.js'
+import { toDocumentJson, toSignatureJson, toUserJson, decodeBase64 } from './serialization.js'
 import { Document } from '../../domain/entities/Document.js'
 import { Signature } from '../../domain/entities/Signature.js'
+import { User } from '../../domain/entities/User.js'
 import { Hash } from '../../domain/value-objects/Hash.js'
 import { SignatureBytes } from '../../domain/value-objects/SignatureBytes.js'
+import { PublicKey } from '../../domain/value-objects/PublicKey.js'
 
 describe('toDocumentJson', () => {
   it('serializes a Document with hex-encoded originalHash', () => {
@@ -47,6 +49,26 @@ describe('toSignatureJson', () => {
       previousSignatureId: null,
       signatureData: Buffer.from(new Uint8Array(64).fill(1)).toString('base64'),
       signedAt: '2026-08-10T00:00:00.000Z'
+    })
+  })
+})
+
+describe('toUserJson', () => {
+  it('serializes a User with base64-encoded publicKey', () => {
+    const user = User.create({
+      id: 'user-1',
+      username: 'alice',
+      email: 'alice@example.com',
+      publicKey: PublicKey.create(new Uint8Array(32).fill(7)).value
+    }).value
+
+    const json = toUserJson(user)
+
+    expect(json).toEqual({
+      id: 'user-1',
+      username: 'alice',
+      email: 'alice@example.com',
+      publicKey: Buffer.from(new Uint8Array(32).fill(7)).toString('base64')
     })
   })
 })

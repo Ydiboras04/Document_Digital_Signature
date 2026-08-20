@@ -1,5 +1,6 @@
 import { Document } from '../../domain/entities/Document.js'
 import { Signature } from '../../domain/entities/Signature.js'
+import { User } from '../../domain/entities/User.js'
 
 export interface DocumentJson {
   id: string
@@ -41,4 +42,20 @@ export function toSignatureJson(signature: Signature): SignatureJson {
 
 export function decodeBase64(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, 'base64'))
+}
+
+export interface UserJson {
+  id: string
+  username: string
+  email: string
+  publicKey: string
+}
+
+export function toUserJson(user: User): UserJson {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    publicKey: Buffer.from(user.publicKey.toBytes()).toString('base64')
+  }
 }
