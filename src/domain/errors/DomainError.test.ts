@@ -5,6 +5,7 @@ import { BrokenChainError } from './BrokenChainError'
 import { DocumentNotFoundError } from './DocumentNotFoundError'
 import { UserNotFoundError } from './UserNotFoundError'
 import { SignatureVerificationFailedError } from './SignatureVerificationFailedError'
+import { DuplicateEmailError } from './DuplicateEmailError'
 
 
 describe('DomainError subclasses', () => {
@@ -46,6 +47,12 @@ describe('DomainError subclasses', () => {
     expect(error.name).toBe('SignatureVerificationFailedError')
     expect(error.message).toContain('user-456')
     expect(error.message).toContain('doc-123')
+  })
+
+  it('DuplicateEmailError carries the offending email', () => {
+    const error = new DuplicateEmailError('taken@example.com')
+    expect(error.name).toBe('DuplicateEmailError')
+    expect(error.message).toContain('taken@example.com')
   })
 
 })
