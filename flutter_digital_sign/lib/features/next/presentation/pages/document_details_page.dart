@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'signing_confirmation_page.dart';
+import 'verification_page.dart';
 import '../../../../app/routes/app_routes.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/crypto/ed25519_key_pair.dart';
@@ -11,12 +12,14 @@ class DocumentDetailsPage extends StatefulWidget {
   final String documentId;
   final DocumentApi? documentApi;
   final IdentityStorage? identityStorage;
+  final AuthSession? authSession;
 
   const DocumentDetailsPage({
     super.key,
     required this.documentId,
     this.documentApi,
     this.identityStorage,
+    this.authSession,
   });
 
   @override
@@ -26,6 +29,8 @@ class DocumentDetailsPage extends StatefulWidget {
 class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
   late final DocumentApi _documentApi;
   late final IdentityStorage _identityStorage;
+  late final AuthSession _authSession;
+  bool _isAdmin = false;
   DocumentDetail? _detail;
   String? _errorMessage;
   bool _isSigning = false;
@@ -34,21 +39,19 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
   void initState() {
     super.initState();
     _identityStorage = widget.identityStorage ?? IdentityStorage();
-    _documentApi = widget.documentApi ??
-        HttpDocumentApi(
-          authSession: AuthSession(
-            authApi: HttpAuthApi(),
-            identityStorage: _identityStorage,
-          ),
-        );
+    _authSession = widget.authSession ??
+        AuthSession(authApi: HttpAuthApi(), identityStorage: _identityStorage);
+    _documentApi = widget.documentApi ?? HttpDocumentApi(authSession: _authSession);
     _load();
   }
 
   Future<void> _load() async {
     try {
+      final admin = await _authSession.isAdmin();
       final detail = await _documentApi.getDocument(widget.documentId);
       if (!mounted) return;
       setState(() {
+        _isAdmin = admin;
         _detail = detail;
       });
     } on UnknownIdentityException {
@@ -180,7 +183,26 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
           ),
           const SizedBox(height: 16),
           _InfoRow(label: 'Uploader', value: detail.uploaderId),
-          _InfoRow(label: 'Signatures', value: '${detail.signatures.length}'),
+          _InfoRow(label: 'Signatures on record', value: '${detail.signatures.length}'),
+          if (_isAdmin) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.verified_user),
+              label: const Text('Verify signatures'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VerificationPage(
+                      documentId: widget.documentId,
+                      documentTitle: detail.title,
+                      documentApi: _documentApi,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
           if (_errorMessage != null) ...[
             const SizedBox(height: 16),
             Text(_errorMessage!, style: const TextStyle(color: Colors.red)),

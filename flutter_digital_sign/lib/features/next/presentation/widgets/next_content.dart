@@ -187,6 +187,7 @@ class _NextContentState extends State<NextContent> {
                               documentId: document.id,
                               documentApi: widget.documentApi,
                               identityStorage: widget.identityStorage,
+                              authSession: widget.authSession,
                             ),
                           ),
                         );
