@@ -16,4 +16,11 @@ class Ed25519KeyPair {
   Future<List<int>> extractPrivateKeyBytes() {
     return _keyPair.extractPrivateKeyBytes();
   }
+
+  static Future<List<int>> sign(List<int> privateKeyBytes, List<int> message) async {
+    final algorithm = Ed25519();
+    final keyPair = await algorithm.newKeyPairFromSeed(privateKeyBytes);
+    final signature = await algorithm.sign(message, keyPair: keyPair);
+    return signature.bytes;
+  }
 }
