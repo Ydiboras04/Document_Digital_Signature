@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../pages/document_details_page.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/network/auth_api.dart';
 import '../../../../core/network/document_api.dart';
 import '../../../../core/storage/identity_storage.dart';
@@ -9,11 +10,13 @@ import '../../../../core/storage/identity_storage.dart';
 class NextContent extends StatefulWidget {
   final DocumentApi documentApi;
   final IdentityStorage identityStorage;
+  final AuthSession authSession;
 
   const NextContent({
     super.key,
     required this.documentApi,
     required this.identityStorage,
+    required this.authSession,
   });
 
   @override
@@ -24,6 +27,7 @@ class _NextContentState extends State<NextContent> {
   List<DocumentSummary>? _documents;
   String? _errorMessage;
   String? _userId;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -42,9 +46,11 @@ class _NextContentState extends State<NextContent> {
     }
     _userId = identity.userId;
     try {
+      final admin = await widget.authSession.isAdmin();
       final documents = await widget.documentApi.listDocuments();
       if (!mounted) return;
       setState(() {
+        _isAdmin = admin;
         _documents = documents;
         _errorMessage = null;
       });
@@ -114,10 +120,11 @@ class _NextContentState extends State<NextContent> {
                 'Documents',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
-              IconButton(
-                icon: const Icon(Icons.upload_file),
-                onPressed: _upload,
-              ),
+              if (_isAdmin)
+                IconButton(
+                  icon: const Icon(Icons.upload_file),
+                  onPressed: _upload,
+                ),
             ],
           ),
           const SizedBox(height: 8),
