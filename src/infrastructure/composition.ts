@@ -34,7 +34,9 @@ export function createDependencies(): Dependencies {
   const documentRepository = new PostgresDocumentRepository()
   const userRepository = new PostgresUserRepository()
   const signatureRepository = new PostgresSignatureRepository()
-  const fileStorage = new DiskFileStorage()
+  // UPLOADS_DIR lets the test suite point storage at a throwaway directory.
+  // Undefined in production, which falls back to DiskFileStorage's ./uploads.
+  const fileStorage = new DiskFileStorage(process.env.UPLOADS_DIR)
   const idGenerator = new RandomIdGenerator()
   const clock = new SystemClock()
   const crypto = new Ed25519CryptoProvider()
