@@ -57,4 +57,68 @@ describe('PostgresUserRepository', () => {
 
     expect(found).toBeNull()
   })
+
+  it('round-trips a non-admin user', async () => {
+    const repository = new PostgresUserRepository()
+    const email = `dave-${randomUUID()}@example.com`
+    const user = User.create({
+      id: randomUUID(),
+      username: 'dave',
+      email,
+      publicKey: PublicKey.create(new Uint8Array(32).fill(7)).value
+    }).value
+
+    await repository.save(user)
+
+    expect((await repository.findByEmail(email))!.isAdmin).toBe(false)
+  })
+
+  it('round-trips an admin user', async () => {
+    const repository = new PostgresUserRepository()
+    const email = `erin-${randomUUID()}@example.com`
+    const user = User.create({
+      id: randomUUID(),
+      username: 'erin',
+      email,
+      publicKey: PublicKey.create(new Uint8Array(32).fill(8)).value,
+      isAdmin: true
+    }).value
+
+    await repository.save(user)
+
+    expect((await repository.findByEmail(email))!.isAdmin).toBe(true)
+  })
+
+  it('setAdminStatus promotes and demotes an existing user', async () => {
+    const repository = new PostgresUserRepository()
+    const email = `frank-${randomUUID()}@example.com`
+    const id = randomUUID()
+    await repository.save(
+      User.create({
+        id,
+        username: 'frank',
+        email,
+        publicKey: PublicKey.create(new Uint8Array(32).fill(9)).value
+      }).value
+    )
+
+    await repository.setAdminStatus(id, true)
+    expect((await repository.findById(id))!.isAdmin).toBe(true)
+
+    await repository.setAdminStatus(id, false)
+    expect((await repository.findById(id))!.isAdmin).toBe(false)
+  })
+
+  it('setAdminStatus on an unknown id is a no-op rather than an error', async () => {
+    const repository = new PostgresUserRepository()
+
+    await expect(repository.setAdminStatus(randomUUID(), true)).resolves.toBeUndefined()
+  })
+
+  it('seeds alice as an admin and bob as a regular user', async () => {
+    const repository = new PostgresUserRepository()
+
+    expect((await repository.findById('user-alice'))!.isAdmin).toBe(true)
+    expect((await repository.findById('user-bob'))!.isAdmin).toBe(false)
+  })
 })

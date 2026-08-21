@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, customType } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, customType, boolean } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
@@ -17,7 +17,8 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   username: text('username').notNull(),
   email: text('email').notNull().unique(),
-  publicKey: bytea('public_key').notNull()
+  publicKey: bytea('public_key').notNull(),
+  isAdmin: boolean('is_admin').notNull().default(false)
 })
 
 export const documents = pgTable('documents', {

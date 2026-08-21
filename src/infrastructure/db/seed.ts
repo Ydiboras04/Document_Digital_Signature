@@ -1,3 +1,4 @@
+import { eq, inArray } from 'drizzle-orm'
 import { db } from './connection.js'
 import { users } from './schema.js'
 import { ed25519TestKeys } from '../testing/ed25519TestKeys.js'
@@ -12,7 +13,14 @@ async function seed() {
     ])
     .onConflictDoNothing()
 
-  console.log('Seeded 3 test users.')
+  // Roles are set explicitly rather than through the insert above, because
+  // onConflictDoNothing leaves pre-existing rows untouched and these fixtures
+  // predate the is_admin column. Alice is the admin fixture; the integration
+  // tests upload as her, and bob is the non-admin the 403 tests use.
+  await db.update(users).set({ isAdmin: true }).where(eq(users.id, 'user-alice'))
+  await db.update(users).set({ isAdmin: false }).where(inArray(users.id, ['user-bob', 'user-carol']))
+
+  console.log('Seeded 3 test users (alice is an admin).')
   process.exit(0)
 }
 

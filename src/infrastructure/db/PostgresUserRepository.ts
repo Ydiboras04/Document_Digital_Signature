@@ -16,7 +16,8 @@ export class PostgresUserRepository implements UserRepository {
       id: row.id,
       username: row.username,
       email: row.email,
-      publicKey: PublicKey.create(row.publicKey).value
+      publicKey: PublicKey.create(row.publicKey).value,
+      isAdmin: row.isAdmin
     }).value
   }
 
@@ -25,7 +26,8 @@ export class PostgresUserRepository implements UserRepository {
       id: user.id,
       username: user.username,
       email: user.email,
-      publicKey: user.publicKey.toBytes()
+      publicKey: user.publicKey.toBytes(),
+      isAdmin: user.isAdmin
     })
   }
 
@@ -39,7 +41,17 @@ export class PostgresUserRepository implements UserRepository {
       id: row.id,
       username: row.username,
       email: row.email,
-      publicKey: PublicKey.create(row.publicKey).value
+      publicKey: PublicKey.create(row.publicKey).value,
+      isAdmin: row.isAdmin
     }).value
+  }
+
+  /**
+   * The only code in the system that can grant admin. Deliberately not on the
+   * UserRepository port: promotion is an operations concern with no use case
+   * behind it, reached only by the db:promote-admin script.
+   */
+  async setAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+    await db.update(users).set({ isAdmin }).where(eq(users.id, userId))
   }
 }
