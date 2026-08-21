@@ -29,7 +29,7 @@ class WelcomeContent extends StatelessWidget {
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.login);
+                Navigator.pushNamed(context, AppRoutes.register);
               },
               child: const Text(
                 'Start',
