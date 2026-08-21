@@ -14,10 +14,9 @@ class AuthSession {
   String? _token;
 
   AuthSession({
-    required AuthApi authApi,
-    required IdentityStorage identityStorage,
-  })  : _authApi = authApi,
-        _identityStorage = identityStorage;
+    required this._authApi,
+    required this._identityStorage,
+  });
 
   Future<String> token() async {
     final cached = _token;
