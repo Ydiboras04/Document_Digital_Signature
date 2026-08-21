@@ -1,7 +1,7 @@
 import { Result } from '../../domain/result/Result.js'
 import { User } from '../../domain/entities/User.js'
-import { Hash } from '../../domain/value-objects/Hash.js'
 import { SignatureBytes } from '../../domain/value-objects/SignatureBytes.js'
+import { authChallengeMessage } from '../../domain/auth/authChallengeContext.js'
 import { UserNotFoundError } from '../../domain/errors/UserNotFoundError.js'
 import { AuthenticationFailedError } from '../../domain/errors/AuthenticationFailedError.js'
 import { InvalidValueError } from '../../domain/errors/InvalidValueError.js'
@@ -47,12 +47,11 @@ export class VerifyChallengeUseCase {
       return Result.fail(signatureResult.error)
     }
 
-    const messageResult = Hash.create(pending.challenge)
-    if (messageResult.isFail()) {
-      return Result.fail(messageResult.error)
-    }
+    // The signature is over a hash of the context-prefixed challenge, never the
+    // raw nonce, so it can never double as a document signature.
+    const message = this.crypto.hash(authChallengeMessage(pending.challenge))
 
-    const isValid = this.crypto.verify(user.publicKey, messageResult.value, signatureResult.value)
+    const isValid = this.crypto.verify(user.publicKey, message, signatureResult.value)
     if (!isValid) {
       return Result.fail(new AuthenticationFailedError())
     }

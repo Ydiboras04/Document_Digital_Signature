@@ -99,7 +99,9 @@ Future<String> token();  // returns cached token, or performs the handshake
 void invalidate();       // drops the cached token
 ```
 
-On a cache miss, `token()` reads `userId` and `privateKeyBytes` from the existing `IdentityStorage`, requests a challenge, signs it with the existing `Ed25519KeyPair.sign(privateKeyBytes, challenge)`, exchanges it for a JWT, caches it in memory, and returns it.
+On a cache miss, `token()` reads `userId` and `privateKeyBytes` from the existing `IdentityStorage`, requests a challenge, signs it with the existing `Ed25519KeyPair.sign(...)`, exchanges it for a JWT, caches it in memory, and returns it.
+
+**Amendment (domain separation).** The client does not sign the raw challenge. It signs `sha256(utf8("SecureDocChain-auth-challenge-v1") + challenge)`, and the server verifies over the identical digest. Without this, an auth signature and a document signature are indistinguishable — both are a 64-byte Ed25519 signature over 32 bytes made by the same key — so a hostile `POST /auth/challenge` response could serve a document's `signingPayload` as the "challenge" and harvest a chain-valid document signature from a user who never consented. The defence has to be client-side, because the client cannot tell an honest challenge from a malicious one. The 32-byte width of the nonce is still load-bearing in the sense the section below describes: the signed message remains a 32-byte `Hash`, produced by the existing `CryptoProvider.hash`, so `CryptoProvider.verify` is still used unchanged. Auth digests are `sha256` over `32 + 32` bytes with a fixed non-numeric prefix, and document payloads are `sha256` over 32 or 64 bytes, so the two can never collide.
 
 The token is held **in memory only** — deliberately not written to `IdentityStorage`. Re-authenticating costs one round trip and requires no user interaction, so persisting a bearer token would add attack surface and buy nothing. The cost is a single silent handshake per app launch.
 

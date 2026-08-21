@@ -10,6 +10,7 @@ import { Hash } from '../../domain/value-objects/Hash.js'
 import { UserNotFoundError } from '../../domain/errors/UserNotFoundError.js'
 import { AuthenticationFailedError } from '../../domain/errors/AuthenticationFailedError.js'
 import { InvalidValueError } from '../../domain/errors/InvalidValueError.js'
+import { authChallengeMessage } from '../../domain/auth/authChallengeContext.js'
 
 const NOW = new Date('2026-08-21T00:00:00Z')
 const CHALLENGE = new Uint8Array(32).fill(3)
@@ -34,6 +35,12 @@ function setup() {
 
 /** A signature the FakeCryptoProvider will accept for this user over CHALLENGE. */
 function validSignatureFor(user: User, crypto: FakeCryptoProvider): Uint8Array {
+  return crypto.sign(user.publicKey, crypto.hash(authChallengeMessage(CHALLENGE))).toBytes()
+}
+
+/** A signature over the raw, unprefixed challenge -- what a document-signing
+ * flow would produce. Must be rejected. */
+function rawChallengeSignatureFor(user: User, crypto: FakeCryptoProvider): Uint8Array {
   return crypto.sign(user.publicKey, Hash.create(CHALLENGE).value).toBytes()
 }
 
@@ -111,6 +118,24 @@ describe('VerifyChallengeUseCase', () => {
     const result = await useCase.execute({
       userId: 'user-1',
       signatureBytes: new Uint8Array(64).fill(9)
+    })
+
+    expect(result.isFail()).toBe(true)
+    expect(result.error).toBeInstanceOf(AuthenticationFailedError)
+  })
+
+  it('rejects a signature over the raw challenge (domain separation)', async () => {
+    const { userRepository, challengeStore, crypto, useCase } = setup()
+    const user = aUser()
+    userRepository.users.push(user)
+    await challengeStore.save('user-1', {
+      challenge: CHALLENGE,
+      expiresAt: new Date(NOW.getTime() + 60_000)
+    })
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      signatureBytes: rawChallengeSignatureFor(user, crypto)
     })
 
     expect(result.isFail()).toBe(true)

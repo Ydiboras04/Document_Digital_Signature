@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { ensureSeedUsers } from '../../infrastructure/db/testSupport.js'
 import { app } from './app.js'
 import { ed25519TestKeys, signWithTestKey } from '../../infrastructure/testing/ed25519TestKeys.js'
+import { signChallenge } from './authTestSupport.js'
 
 beforeAll(async () => {
   await ensureSeedUsers()
@@ -49,7 +50,7 @@ describe('POST /auth/token', () => {
   it('issues a JWT when the challenge is signed with the real private key', async () => {
     const challengeRes = await requestChallenge('user-alice')
     const { challenge } = await challengeRes.json()
-    const signature = signWithTestKey(ed25519TestKeys.alice, new Uint8Array(Buffer.from(challenge, 'base64')))
+    const signature = signChallenge(ed25519TestKeys.alice, new Uint8Array(Buffer.from(challenge, 'base64')))
 
     const res = await app.request('/auth/token', {
       method: 'POST',
@@ -63,13 +64,42 @@ describe('POST /auth/token', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(typeof body.token).toBe('string')
-    expect(body.token.split('.')).toHaveLength(3)
+
+    const parts = body.token.split('.')
+    expect(parts).toHaveLength(3)
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+    expect(payload.sub).toBe('user-alice')
+    const expectedExp = Math.floor(Date.now() / 1000) + 3600
+    expect(payload.exp).toBeGreaterThan(expectedExp - 60)
+    expect(payload.exp).toBeLessThanOrEqual(expectedExp + 60)
+  })
+
+  it('rejects a signature over the raw, unprefixed challenge', async () => {
+    const challengeRes = await requestChallenge('user-alice')
+    const { challenge } = await challengeRes.json()
+    // No domain-separation prefix and no hashing: this is exactly the shape a
+    // document-signing flow produces, and it must not authenticate.
+    const signature = signWithTestKey(
+      ed25519TestKeys.alice,
+      new Uint8Array(Buffer.from(challenge, 'base64'))
+    )
+
+    const res = await app.request('/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'user-alice',
+        signature: Buffer.from(signature).toString('base64')
+      })
+    })
+
+    expect(res.status).toBe(401)
   })
 
   it('returns 401 when the signature is made with the wrong key', async () => {
     const challengeRes = await requestChallenge('user-alice')
     const { challenge } = await challengeRes.json()
-    const signature = signWithTestKey(ed25519TestKeys.bob, new Uint8Array(Buffer.from(challenge, 'base64')))
+    const signature = signChallenge(ed25519TestKeys.bob, new Uint8Array(Buffer.from(challenge, 'base64')))
 
     const res = await app.request('/auth/token', {
       method: 'POST',
@@ -99,7 +129,7 @@ describe('POST /auth/token', () => {
   it('rejects a replayed signature (nonce is single-use)', async () => {
     const challengeRes = await requestChallenge('user-alice')
     const { challenge } = await challengeRes.json()
-    const signature = signWithTestKey(ed25519TestKeys.alice, new Uint8Array(Buffer.from(challenge, 'base64')))
+    const signature = signChallenge(ed25519TestKeys.alice, new Uint8Array(Buffer.from(challenge, 'base64')))
     const payload = JSON.stringify({
       userId: 'user-alice',
       signature: Buffer.from(signature).toString('base64')
