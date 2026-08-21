@@ -92,11 +92,49 @@ class SignFailure extends SignResult {
   SignFailure(this.message);
 }
 
+class VerifiedSigner {
+  final String userId;
+  final String username;
+  final String email;
+  final DateTime signedAt;
+
+  VerifiedSigner({
+    required this.userId,
+    required this.username,
+    required this.email,
+    required this.signedAt,
+  });
+
+  factory VerifiedSigner.fromJson(Map<String, dynamic> json) {
+    return VerifiedSigner(
+      userId: json['userId'] as String,
+      username: json['username'] as String,
+      email: json['email'] as String,
+      signedAt: DateTime.parse(json['signedAt'] as String),
+    );
+  }
+}
+
+sealed class VerificationResult {}
+
+/// The chain verified. [signers] contains only signatures that actually
+/// verified against their signer's public key -- never merely stored rows.
+class VerificationValid extends VerificationResult {
+  final List<VerifiedSigner> signers;
+  VerificationValid(this.signers);
+}
+
+class VerificationInvalid extends VerificationResult {
+  final String reason;
+  VerificationInvalid(this.reason);
+}
+
 abstract class DocumentApi {
   Future<List<DocumentSummary>> listDocuments();
   Future<DocumentDetail> getDocument(String documentId);
   Future<UploadResult> uploadDocument(String title, List<int> fileBytes);
   Future<SignResult> submitSignature(String documentId, List<int> signatureBytes);
+  Future<VerificationResult> verifyDocument(String documentId);
 }
 
 class HttpDocumentApi implements DocumentApi {
@@ -198,5 +236,30 @@ class HttpDocumentApi implements DocumentApi {
     }
 
     return SignSuccess();
+  }
+
+  @override
+  Future<VerificationResult> verifyDocument(String documentId) async {
+    final response = await _send(
+      (token) => _client.get(Uri.parse('$baseUrl/documents/$documentId/verify'), headers: _headers(token)),
+    );
+
+    // A 403 or 404 is not a verification outcome. Reporting either as
+    // VerificationInvalid would tell an admin a document was tampered with
+    // when the real problem was access or a bad id.
+    if (response.statusCode != 200) {
+      throw Exception('Failed to verify document');
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (body['valid'] == true) {
+      final signatures = (body['signatures'] as List)
+          .map((s) => VerifiedSigner.fromJson(s as Map<String, dynamic>))
+          .toList();
+      return VerificationValid(signatures);
+    }
+
+    return VerificationInvalid(body['reason'] as String? ?? 'Verification failed');
   }
 }

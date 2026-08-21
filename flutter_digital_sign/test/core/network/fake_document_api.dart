@@ -5,11 +5,13 @@ class FakeDocumentApi implements DocumentApi {
   DocumentDetail Function(String documentId)? onGetDocument;
   UploadResult Function(String title, List<int> fileBytes)? onUploadDocument;
   SignResult Function(String documentId, List<int> signatureBytes)? onSubmitSignature;
+  VerificationResult Function(String documentId)? onVerifyDocument;
 
   int listCalls = 0;
   final List<String> getCalls = [];
   final List<({String title, List<int> fileBytes})> uploadCalls = [];
   final List<({String documentId, List<int> signatureBytes})> signCalls = [];
+  final List<String> verifyCalls = [];
 
   @override
   Future<List<DocumentSummary>> listDocuments() async {
@@ -33,5 +35,11 @@ class FakeDocumentApi implements DocumentApi {
   Future<SignResult> submitSignature(String documentId, List<int> signatureBytes) async {
     signCalls.add((documentId: documentId, signatureBytes: signatureBytes));
     return onSubmitSignature?.call(documentId, signatureBytes) ?? SignSuccess();
+  }
+
+  @override
+  Future<VerificationResult> verifyDocument(String documentId) async {
+    verifyCalls.add(documentId);
+    return onVerifyDocument!.call(documentId);
   }
 }

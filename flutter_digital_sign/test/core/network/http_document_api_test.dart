@@ -259,4 +259,80 @@ void main() {
       expect((result as SignFailure).message, 'Signing failed');
     });
   });
+
+  group('HttpDocumentApi.verifyDocument', () {
+    test('returns VerificationValid with the named signers', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'http://localhost:3000/documents/doc-1/verify');
+        expect(request.headers['Authorization'], 'Bearer tok-1');
+        return http.Response(
+          jsonEncode({
+            'valid': true,
+            'signatures': [
+              {
+                'userId': 'user-alice',
+                'username': 'alice',
+                'email': 'alice@example.com',
+                'signedAt': '2026-08-21T07:08:00.000Z',
+              }
+            ],
+          }),
+          200,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.verifyDocument('doc-1');
+
+      expect(result, isA<VerificationValid>());
+      final signers = (result as VerificationValid).signers;
+      expect(signers, hasLength(1));
+      expect(signers.first.username, 'alice');
+      expect(signers.first.email, 'alice@example.com');
+      expect(signers.first.userId, 'user-alice');
+      expect(signers.first.signedAt, DateTime.utc(2026, 8, 21, 7, 8));
+    });
+
+    test('returns VerificationValid with no signers for an unsigned document', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(jsonEncode({'valid': true, 'signatures': []}), 200);
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.verifyDocument('doc-1');
+
+      expect(result, isA<VerificationValid>());
+      expect((result as VerificationValid).signers, isEmpty);
+    });
+
+    test('returns VerificationInvalid with the reason when the chain does not verify', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({'valid': false, 'reason': 'cryptographic verification failed'}),
+          200,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.verifyDocument('doc-1');
+
+      expect(result, isA<VerificationInvalid>());
+      expect((result as VerificationInvalid).reason, 'cryptographic verification failed');
+    });
+
+    test('throws on a 403 rather than reporting it as a failed verification', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'error': {'type': 'ForbiddenError', 'message': 'Only an administrator may verify document signatures'}
+          }),
+          403,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      expect(() => api.verifyDocument('doc-1'), throwsA(isA<Exception>()));
+    });
+  });
 }
