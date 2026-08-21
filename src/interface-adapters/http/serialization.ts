@@ -2,6 +2,7 @@ import { Document } from '../../domain/entities/Document.js'
 import { Signature } from '../../domain/entities/Signature.js'
 import { User } from '../../domain/entities/User.js'
 import { DocumentDetailDto } from '../../use-cases/get-document/GetDocumentUseCase.js'
+import { VerifiedSignatureDto } from '../../use-cases/verify-document/VerifyDocumentUseCase.js'
 
 export interface DocumentJson {
   id: string
@@ -38,6 +39,27 @@ export function toSignatureJson(signature: Signature): SignatureJson {
     previousSignatureId: signature.previousSignatureId,
     signatureData: Buffer.from(signature.signatureData.toBytes()).toString('base64'),
     signedAt: signature.signedAt.toISOString()
+  }
+}
+
+export interface VerifiedSignatureJson {
+  userId: string
+  username: string
+  email: string
+  signedAt: string
+}
+
+/**
+ * Deliberately omits the raw signature bytes: the verification screen has no
+ * use for them, and there is no reason to ship key material-adjacent data to
+ * a client that cannot do anything with it.
+ */
+export function toVerifiedSignatureJson(dto: VerifiedSignatureDto): VerifiedSignatureJson {
+  return {
+    userId: dto.userId,
+    username: dto.username,
+    email: dto.email,
+    signedAt: dto.signedAt.toISOString()
   }
 }
 

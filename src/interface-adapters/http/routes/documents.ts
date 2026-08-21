@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Dependencies } from '../../../infrastructure/composition.js'
-import { toDocumentJson, toSignatureJson, decodeBase64, toDocumentDetailJson } from '../serialization.js'
+import { toDocumentJson, toSignatureJson, decodeBase64, toDocumentDetailJson, toVerifiedSignatureJson } from '../serialization.js'
 import { mapDomainErrorToResponse } from '../errorMapping.js'
 import { DocumentNotFoundError } from '../../../domain/errors/DocumentNotFoundError.js'
 import { getAuthenticatedUserId, isAuthenticatedUserAdmin } from '../authContext.js'
@@ -61,6 +61,13 @@ export function createDocumentsRoutes(dependencies: Dependencies): Hono {
   })
 
   documents.get('/documents/:documentId/verify', async (c) => {
+    if (!isAuthenticatedUserAdmin(c)) {
+      return c.json(
+        { error: { type: 'ForbiddenError', message: 'Only an administrator may verify document signatures' } },
+        403
+      )
+    }
+
     const documentId = c.req.param('documentId')
 
     const result = await dependencies.verifyDocumentUseCase.execute({ documentId })
@@ -74,7 +81,7 @@ export function createDocumentsRoutes(dependencies: Dependencies): Hono {
       return c.json({ valid: false, reason: error.message }, 200)
     }
 
-    return c.json({ valid: true, signatures: result.value.map(toSignatureJson) }, 200)
+    return c.json({ valid: true, signatures: result.value.map(toVerifiedSignatureJson) }, 200)
   })
 
   documents.get('/documents', async (c) => {

@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import { ensureSeedUsers } from '../../infrastructure/db/testSupport.js'
 import { app } from './app.js'
 import { Ed25519CryptoProvider } from '../../infrastructure/Ed25519CryptoProvider.js'
 import { ed25519TestKeys, signWithTestKey } from '../../infrastructure/testing/ed25519TestKeys.js'
 import { authTokenFor, bearer } from './authTestSupport.js'
+import { PostgresSignatureRepository } from '../../infrastructure/db/PostgresSignatureRepository.js'
+import { Signature } from '../../domain/entities/Signature.js'
+import { SignatureBytes } from '../../domain/value-objects/SignatureBytes.js'
 
 let aliceToken: string
 let bobToken: string
@@ -177,6 +181,62 @@ describe('GET /documents/:documentId/verify', () => {
     const body = await res.json()
     expect(body.error.type).toBe('DocumentNotFoundError')
   })
+
+  it('resolves signers to username and email for an admin', async () => {
+    const document = await uploadADocument()
+    const signatureBytes = computeAliceSignatureBytes(document.originalHash)
+    await app.request(`/documents/${document.id}/signatures`, {
+      method: 'POST',
+      headers: bearer(aliceToken),
+      body: JSON.stringify({ signatureBytes: Buffer.from(signatureBytes).toString('base64') })
+    })
+
+    const verifyRes = await app.request(`/documents/${document.id}/verify`, { headers: bearer(aliceToken) })
+
+    const body = await verifyRes.json()
+    expect(body.valid).toBe(true)
+    expect(body.signatures).toHaveLength(1)
+    expect(body.signatures[0].userId).toBe('user-alice')
+    expect(body.signatures[0].username).toBe('alice')
+    expect(body.signatures[0].email).toBe('alice@example.com')
+    expect(typeof body.signatures[0].signedAt).toBe('string')
+    expect(body.signatures[0].signatureData).toBeUndefined()
+  })
+
+  it('rejects verification by a non-admin with 403', async () => {
+    const document = await uploadADocument()
+
+    const res = await app.request(`/documents/${document.id}/verify`, { headers: bearer(bobToken) })
+
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error.type).toBe('ForbiddenError')
+  })
+
+  it('reports valid: false when a stored signature does not actually verify', async () => {
+    const document = await uploadADocument()
+
+    // Write a signature row straight past the signing endpoint, carrying bytes
+    // that were never produced by alice's key. This is the forgery case the
+    // whole screen exists to catch: the row exists, so any check that merely
+    // read the database would call this document signed.
+    const forged = Signature.create({
+      id: randomUUID(),
+      documentId: document.id,
+      userId: 'user-alice',
+      previousSignatureId: null,
+      signatureData: SignatureBytes.create(new Uint8Array(64).fill(9)).value,
+      signedAt: new Date()
+    }).value
+    await new PostgresSignatureRepository().save(forged)
+
+    const verifyRes = await app.request(`/documents/${document.id}/verify`, { headers: bearer(aliceToken) })
+
+    expect(verifyRes.status).toBe(200)
+    const body = await verifyRes.json()
+    expect(body.valid).toBe(false)
+    expect(typeof body.reason).toBe('string')
+  })
 })
 
 describe('GET /documents', () => {
@@ -279,7 +339,7 @@ describe('upload authorization', () => {
     expect(res.status).toBe(201)
   })
 
-  it('still lets a non-admin list, read, sign, and verify', async () => {
+  it('still lets a non-admin list, read, and sign, but not verify', async () => {
     const document = await uploadADocument()
 
     const listRes = await app.request('/documents', { headers: bearer(bobToken) })
@@ -300,7 +360,10 @@ describe('upload authorization', () => {
     })
     expect(signRes.status).toBe(201)
 
+    // Verification is admin-only (see 'GET /documents/:documentId/verify' >
+    // 'rejects verification by a non-admin with 403'), so a non-admin who can
+    // list, read, and sign is still turned away here.
     const verifyRes = await app.request(`/documents/${document.id}/verify`, { headers: bearer(bobToken) })
-    expect(verifyRes.status).toBe(200)
+    expect(verifyRes.status).toBe(403)
   })
 })
