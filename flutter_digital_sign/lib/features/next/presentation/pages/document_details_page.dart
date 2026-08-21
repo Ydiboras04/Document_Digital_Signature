@@ -39,6 +39,7 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
   Future<void> _load() async {
     final identity = await _identityStorage.load();
     if (identity == null) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'No identity found on this device.';
       });
@@ -69,29 +70,46 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
       _errorMessage = null;
     });
 
-    final identity = await _identityStorage.load();
-    final signatureBytes = await Ed25519KeyPair.sign(
-      identity!.privateKeyBytes,
-      detail.signingPayload!,
-    );
-
-    final result = await _documentApi.submitSignature(widget.documentId, userId, signatureBytes);
-
-    if (!mounted) return;
-
-    switch (result) {
-      case SignSuccess():
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SigningConfirmationPage(documentName: detail.title),
-          ),
-        );
-      case SignFailure(message: final message):
+    try {
+      final identity = await _identityStorage.load();
+      if (identity == null) {
+        if (!mounted) return;
         setState(() {
           _isSigning = false;
-          _errorMessage = message;
+          _errorMessage = 'No identity found on this device.';
         });
+        return;
+      }
+
+      final signatureBytes = await Ed25519KeyPair.sign(
+        identity.privateKeyBytes,
+        detail.signingPayload!,
+      );
+
+      final result = await _documentApi.submitSignature(widget.documentId, userId, signatureBytes);
+
+      if (!mounted) return;
+
+      switch (result) {
+        case SignSuccess():
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SigningConfirmationPage(documentName: detail.title),
+            ),
+          );
+        case SignFailure(message: final message):
+          setState(() {
+            _isSigning = false;
+            _errorMessage = message;
+          });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSigning = false;
+        _errorMessage = 'Failed to sign document.';
+      });
     }
   }
 
@@ -153,7 +171,7 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isSigning ? null : _confirmSignature,
+                onPressed: (_isSigning || detail.signingPayload == null) ? null : _confirmSignature,
                 child: const Text('Confirm Signature'),
               ),
             ),

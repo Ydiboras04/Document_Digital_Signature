@@ -32,6 +32,7 @@ class _NextContentState extends State<NextContent> {
   Future<void> _loadDocuments() async {
     final identity = await widget.identityStorage.load();
     if (identity == null) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'No identity found on this device.';
       });
@@ -138,6 +139,7 @@ class _NextContentState extends State<NextContent> {
                             ),
                           ),
                         );
+                        if (!mounted) return;
                         _loadDocuments();
                       },
                     ),

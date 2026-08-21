@@ -29,7 +29,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const NextPage());
       case documentDetails:
         final args = settings.arguments as Map<String, String>? ?? {};
-        final documentId = args['documentId'] ?? '';
+        final documentId = args['documentId'];
+        if (documentId == null) {
+          return MaterialPageRoute(builder: (_) => const NextPage());
+        }
         return MaterialPageRoute(
           builder: (_) => DocumentDetailsPage(documentId: documentId),
         );
