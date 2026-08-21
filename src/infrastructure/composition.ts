@@ -12,6 +12,11 @@ import { SignDocumentUseCase } from '../use-cases/sign-document/SignDocumentUseC
 import { VerifyDocumentUseCase } from '../use-cases/verify-document/VerifyDocumentUseCase.js'
 import { ListDocumentsUseCase } from '../use-cases/list-documents/ListDocumentsUseCase.js'
 import { GetDocumentUseCase } from '../use-cases/get-document/GetDocumentUseCase.js'
+import { InMemoryChallengeStore } from './InMemoryChallengeStore.js'
+import { RandomNonceGenerator } from './RandomNonceGenerator.js'
+import { requireJwtSecret } from './config.js'
+import { RequestChallengeUseCase } from '../use-cases/request-challenge/RequestChallengeUseCase.js'
+import { VerifyChallengeUseCase } from '../use-cases/verify-challenge/VerifyChallengeUseCase.js'
 
 export interface Dependencies {
   createUserUseCase: CreateUserUseCase
@@ -20,6 +25,9 @@ export interface Dependencies {
   verifyDocumentUseCase: VerifyDocumentUseCase
   listDocumentsUseCase: ListDocumentsUseCase
   getDocumentUseCase: GetDocumentUseCase
+  requestChallengeUseCase: RequestChallengeUseCase
+  verifyChallengeUseCase: VerifyChallengeUseCase
+  jwtSecret: string
 }
 
 export function createDependencies(): Dependencies {
@@ -52,12 +60,26 @@ export function createDependencies(): Dependencies {
   const listDocumentsUseCase = new ListDocumentsUseCase(documentRepository, signatureRepository)
   const getDocumentUseCase = new GetDocumentUseCase(documentRepository, signatureRepository, signatureChainService)
 
+  const challengeStore = new InMemoryChallengeStore()
+  const nonceGenerator = new RandomNonceGenerator()
+  const jwtSecret = requireJwtSecret()
+  const requestChallengeUseCase = new RequestChallengeUseCase(
+    userRepository,
+    challengeStore,
+    nonceGenerator,
+    clock
+  )
+  const verifyChallengeUseCase = new VerifyChallengeUseCase(userRepository, challengeStore, clock, crypto)
+
   return {
     createUserUseCase,
     uploadDocumentUseCase,
     signDocumentUseCase,
     verifyDocumentUseCase,
     listDocumentsUseCase,
-    getDocumentUseCase
+    getDocumentUseCase,
+    requestChallengeUseCase,
+    verifyChallengeUseCase,
+    jwtSecret
   }
 }
