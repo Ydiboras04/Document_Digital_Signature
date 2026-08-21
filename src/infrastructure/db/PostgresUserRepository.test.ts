@@ -88,18 +88,13 @@ describe('PostgresUserRepository', () => {
     await repository.save(user)
 
     expect((await repository.findByEmail(email))!.isAdmin).toBe(true)
-
-    // Demote before finishing. cleanDatabase deliberately never clears users,
-    // so an admin left behind here accumulates one per run -- and a database
-    // full of stray admins silently defeats the db:demote-admin last-admin
-    // guard, which is exactly what happened before this line existed.
-    await repository.setAdminStatus(id, false)
   })
 
   it('countAdmins tracks admins as their roles change', async () => {
     const repository = new PostgresUserRepository()
-    // Measured as a delta rather than an absolute: cleanDatabase deliberately
-    // never clears users, so this table carries rows from every prior run.
+    // Measured as a delta rather than an absolute. cleanDatabase sweeps
+    // non-seed users, so this is 1 (alice) in practice -- but asserting the
+    // delta keeps the test honest if the seed fixture ever gains an admin.
     const before = await repository.countAdmins()
     const id = randomUUID()
     await repository.save(

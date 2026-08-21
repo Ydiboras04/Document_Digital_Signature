@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { cleanDatabase, ensureSeedUsers } from './testSupport.js'
 import { db } from './connection.js'
 import { users, documents, signatures } from './schema.js'
+import { ed25519TestKeys } from '../testing/ed25519TestKeys.js'
 
 describe('cleanDatabase and ensureSeedUsers', () => {
   beforeEach(async () => {
@@ -21,14 +22,26 @@ describe('cleanDatabase and ensureSeedUsers', () => {
     await ensureSeedUsers()
 
     const allUsers = await db.select({ id: users.id }).from(users)
-    const ids = allUsers.map((u) => u.id)
+    const ids = allUsers.map((u) => u.id).sort()
 
-    // Other tests (e.g. CreateUserUseCase's registration flow) can leave
-    // additional real users behind, since cleanDatabase() deliberately
-    // never touches `users` -- this only asserts the 3 seed ids are
-    // present, not that they're the only rows in the table.
+    // Exact equality, not containment: cleanDatabase now sweeps non-seed users,
+    // so anything else in this table would mean the sweep missed something.
+    expect(ids).toEqual(['user-alice', 'user-bob', 'user-carol'])
+  })
+
+  it('cleanDatabase removes users left behind by other tests', async () => {
+    await ensureSeedUsers()
+    await db.insert(users).values({
+      id: 'stray-user-for-sweep-test',
+      username: 'stray',
+      email: 'stray@example.com',
+      publicKey: ed25519TestKeys.carol.publicKeyBytes
+    })
+
+    await cleanDatabase()
+
+    const ids = (await db.select({ id: users.id }).from(users)).map((u) => u.id)
+    expect(ids).not.toContain('stray-user-for-sweep-test')
     expect(ids).toContain('user-alice')
-    expect(ids).toContain('user-bob')
-    expect(ids).toContain('user-carol')
   })
 })

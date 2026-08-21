@@ -1,11 +1,26 @@
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, notInArray } from 'drizzle-orm'
 import { db } from './connection.js'
 import { documents, signatures, users } from './schema.js'
 import { ed25519TestKeys } from '../testing/ed25519TestKeys.js'
 
+const SEED_USER_IDS = ['user-alice', 'user-bob', 'user-carol']
+
+/**
+ * Resets the database to just the three seed users.
+ *
+ * Deletion order follows the foreign keys: signatures reference documents and
+ * users, documents reference users, so users go last.
+ *
+ * Users used to be left alone here, which meant every run that registered a
+ * user left another row behind -- 142 of them by the time this was written,
+ * including strays that had been granted admin. Those silently defeated the
+ * db:demote-admin last-admin guard, since it counts admins and found a dozen.
+ * Sweeping them keeps the fixture honest about what the table contains.
+ */
 export async function cleanDatabase(): Promise<void> {
   await db.delete(signatures)
   await db.delete(documents)
+  await db.delete(users).where(notInArray(users.id, SEED_USER_IDS))
 }
 
 export async function ensureSeedUsers(): Promise<void> {
