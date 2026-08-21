@@ -142,4 +142,42 @@ describe('POST /auth/token', () => {
     expect(first.status).toBe(200)
     expect(replay.status).toBe(401)
   })
+
+  it('carries the isAdmin claim, true for an admin', async () => {
+    const challengeRes = await requestChallenge('user-alice')
+    const { challenge } = await challengeRes.json()
+    const signature = signChallenge(ed25519TestKeys.alice, new Uint8Array(Buffer.from(challenge, 'base64')))
+
+    const res = await app.request('/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'user-alice',
+        signature: Buffer.from(signature).toString('base64')
+      })
+    })
+
+    const { token } = await res.json()
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+    expect(payload.isAdmin).toBe(true)
+  })
+
+  it('carries the isAdmin claim, false for a regular user', async () => {
+    const challengeRes = await requestChallenge('user-bob')
+    const { challenge } = await challengeRes.json()
+    const signature = signChallenge(ed25519TestKeys.bob, new Uint8Array(Buffer.from(challenge, 'base64')))
+
+    const res = await app.request('/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'user-bob',
+        signature: Buffer.from(signature).toString('base64')
+      })
+    })
+
+    const { token } = await res.json()
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+    expect(payload.isAdmin).toBe(false)
+  })
 })

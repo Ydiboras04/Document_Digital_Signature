@@ -3,13 +3,19 @@ import type { Dependencies } from '../../../infrastructure/composition.js'
 import { toDocumentJson, toSignatureJson, decodeBase64, toDocumentDetailJson } from '../serialization.js'
 import { mapDomainErrorToResponse } from '../errorMapping.js'
 import { DocumentNotFoundError } from '../../../domain/errors/DocumentNotFoundError.js'
-import { getAuthenticatedUserId } from '../authContext.js'
+import { getAuthenticatedUserId, isAuthenticatedUserAdmin } from '../authContext.js'
 
 export function createDocumentsRoutes(dependencies: Dependencies): Hono {
   const documents = new Hono()
 
   documents.post('/documents', async (c) => {
     const uploaderId = getAuthenticatedUserId(c)
+    if (!isAuthenticatedUserAdmin(c)) {
+      return c.json(
+        { error: { type: 'ForbiddenError', message: 'Only an administrator may upload documents' } },
+        403
+      )
+    }
     const body = await c.req.json().catch(() => null)
     if (body === null || typeof body.title !== 'string' || typeof body.fileBytes !== 'string') {
       return c.json(

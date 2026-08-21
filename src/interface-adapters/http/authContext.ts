@@ -13,3 +13,14 @@ export function getAuthenticatedUserId(c: Context): string {
   }
   return sub
 }
+
+/**
+ * Reads the admin claim from the already-verified JWT payload.
+ *
+ * An absent or non-boolean claim reads as false, so tokens issued before the
+ * claim existed degrade to regular-user access rather than to admin.
+ */
+export function isAuthenticatedUserAdmin(c: Context): boolean {
+  const payload = c.get('jwtPayload') as { isAdmin?: unknown } | undefined
+  return payload?.isAdmin === true
+}

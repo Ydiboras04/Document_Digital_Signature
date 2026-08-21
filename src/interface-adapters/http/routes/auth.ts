@@ -47,6 +47,7 @@ export function createAuthRoutes(dependencies: Dependencies): Hono {
     const token = await sign(
       {
         sub: result.value.id,
+        isAdmin: result.value.isAdmin,
         exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS
       },
       dependencies.jwtSecret

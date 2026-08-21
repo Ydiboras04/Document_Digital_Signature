@@ -249,3 +249,58 @@ describe('GET /documents/:documentId', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('upload authorization', () => {
+  it('rejects an upload from a non-admin with 403', async () => {
+    const res = await app.request('/documents', {
+      method: 'POST',
+      headers: bearer(bobToken),
+      body: JSON.stringify({
+        title: 'Contract',
+        fileBytes: Buffer.from('hello world').toString('base64')
+      })
+    })
+
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error.type).toBe('ForbiddenError')
+  })
+
+  it('allows an upload from an admin', async () => {
+    const res = await app.request('/documents', {
+      method: 'POST',
+      headers: bearer(aliceToken),
+      body: JSON.stringify({
+        title: 'Contract',
+        fileBytes: Buffer.from('hello world').toString('base64')
+      })
+    })
+
+    expect(res.status).toBe(201)
+  })
+
+  it('still lets a non-admin list, read, sign, and verify', async () => {
+    const document = await uploadADocument()
+
+    const listRes = await app.request('/documents', { headers: bearer(bobToken) })
+    expect(listRes.status).toBe(200)
+
+    const detailRes = await app.request(`/documents/${document.id}`, { headers: bearer(bobToken) })
+    expect(detailRes.status).toBe(200)
+    const detail = await detailRes.json()
+
+    const signatureBytes = signWithTestKey(
+      ed25519TestKeys.bob,
+      new Uint8Array(Buffer.from(detail.signingPayload, 'base64'))
+    )
+    const signRes = await app.request(`/documents/${document.id}/signatures`, {
+      method: 'POST',
+      headers: bearer(bobToken),
+      body: JSON.stringify({ signatureBytes: Buffer.from(signatureBytes).toString('base64') })
+    })
+    expect(signRes.status).toBe(201)
+
+    const verifyRes = await app.request(`/documents/${document.id}/verify`, { headers: bearer(bobToken) })
+    expect(verifyRes.status).toBe(200)
+  })
+})
