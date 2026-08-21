@@ -136,3 +136,11 @@ Only one endpoint requires the admin role (`POST /documents`), and by design **t
 5. Restart the client, or wait for the user's current session token to expire.
 
 **Promotion is not instant.** The server reads the admin flag from the JWT, not from the database, on every request — so a promotion only takes effect the next time that user obtains a token: immediately if they restart the app (or otherwise re-authenticate), or automatically within an hour when their current token expires. Seeing the upload control stay hidden right after running the script is expected, not a failure — it is the fail-closed trade-off described in the design spec, and it resolves itself without further action.
+
+### Revoking admin
+
+`npm run db:demote-admin -- <email>` returns an admin to a regular user. Same constraints as promotion: it needs `DATABASE_URL` access, there is no HTTP path to it, and it takes effect on that user's next token rather than immediately.
+
+Note that the same delay cuts the other way here: a revoked admin keeps whatever privileges their current token carries until it expires, up to an hour. If you are revoking someone urgently rather than tidying up, rotate `JWT_SECRET` and restart the server — that invalidates every issued token at once, forcing all users to re-authenticate and pick up their current roles.
+
+Nothing stops you demoting the last remaining admin. Doing so leaves the deployment with nobody able to upload or verify until you promote someone again — recoverable with one more script run, but worth noticing before you run it.

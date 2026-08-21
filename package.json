@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/infrastructure/db/seed.ts",
-    "db:promote-admin": "tsx --env-file=.env src/infrastructure/db/promoteAdmin.ts"
+    "db:promote-admin": "tsx --env-file=.env src/infrastructure/db/setAdminRole.ts promote",
+    "db:demote-admin": "tsx --env-file=.env src/infrastructure/db/setAdminRole.ts demote"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
