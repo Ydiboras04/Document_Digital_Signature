@@ -10,12 +10,16 @@ import { CreateUserUseCase } from '../use-cases/create-user/CreateUserUseCase.js
 import { UploadDocumentUseCase } from '../use-cases/upload-document/UploadDocumentUseCase.js'
 import { SignDocumentUseCase } from '../use-cases/sign-document/SignDocumentUseCase.js'
 import { VerifyDocumentUseCase } from '../use-cases/verify-document/VerifyDocumentUseCase.js'
+import { ListDocumentsUseCase } from '../use-cases/list-documents/ListDocumentsUseCase.js'
+import { GetDocumentUseCase } from '../use-cases/get-document/GetDocumentUseCase.js'
 
 export interface Dependencies {
   createUserUseCase: CreateUserUseCase
   uploadDocumentUseCase: UploadDocumentUseCase
   signDocumentUseCase: SignDocumentUseCase
   verifyDocumentUseCase: VerifyDocumentUseCase
+  listDocumentsUseCase: ListDocumentsUseCase
+  getDocumentUseCase: GetDocumentUseCase
 }
 
 export function createDependencies(): Dependencies {
@@ -45,6 +49,15 @@ export function createDependencies(): Dependencies {
     signatureRepository,
     signatureChainService
   )
+  const listDocumentsUseCase = new ListDocumentsUseCase(documentRepository, signatureRepository)
+  const getDocumentUseCase = new GetDocumentUseCase(documentRepository, signatureRepository, signatureChainService)
 
-  return { createUserUseCase, uploadDocumentUseCase, signDocumentUseCase, verifyDocumentUseCase }
+  return {
+    createUserUseCase,
+    uploadDocumentUseCase,
+    signDocumentUseCase,
+    verifyDocumentUseCase,
+    listDocumentsUseCase,
+    getDocumentUseCase
+  }
 }

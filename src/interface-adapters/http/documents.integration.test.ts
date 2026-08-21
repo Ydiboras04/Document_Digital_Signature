@@ -126,3 +126,65 @@ describe('GET /documents/:documentId/verify', () => {
     expect(body.signatures).toEqual([])
   })
 })
+
+describe('GET /documents', () => {
+  it('lists documents with signedByUser computed for the given user', async () => {
+    const document = await uploadADocument()
+
+    const res = await app.request('/documents?userId=user-alice')
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toContainEqual({
+      id: document.id,
+      title: 'Contract',
+      uploaderId: 'user-alice',
+      signedByUser: false
+    })
+  })
+
+  it('returns 400 when userId is missing', async () => {
+    const res = await app.request('/documents')
+
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('GET /documents/:documentId', () => {
+  it('returns document detail with a signing payload for an unsigned document', async () => {
+    const document = await uploadADocument()
+
+    const res = await app.request(`/documents/${document.id}?userId=user-alice`)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.id).toBe(document.id)
+    expect(body.signedByUser).toBe(false)
+    expect(typeof body.signingPayload).toBe('string')
+  })
+
+  it('returns signedByUser: true and a null signing payload after the user signs', async () => {
+    const document = await uploadADocument()
+    const signatureBytes = computeAliceSignatureBytes(document.originalHash)
+    await app.request(`/documents/${document.id}/signatures`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'user-alice',
+        signatureBytes: Buffer.from(signatureBytes).toString('base64')
+      })
+    })
+
+    const res = await app.request(`/documents/${document.id}?userId=user-alice`)
+
+    const body = await res.json()
+    expect(body.signedByUser).toBe(true)
+    expect(body.signingPayload).toBeNull()
+  })
+
+  it('returns 404 for a document that does not exist', async () => {
+    const res = await app.request('/documents/missing-doc?userId=user-alice')
+
+    expect(res.status).toBe(404)
+  })
+})

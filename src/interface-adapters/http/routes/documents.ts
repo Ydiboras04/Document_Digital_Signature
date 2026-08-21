@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Dependencies } from '../../../infrastructure/composition.js'
-import { toDocumentJson, toSignatureJson, decodeBase64 } from '../serialization.js'
+import { toDocumentJson, toSignatureJson, decodeBase64, toDocumentDetailJson } from '../serialization.js'
 import { mapDomainErrorToResponse } from '../errorMapping.js'
 import { DocumentNotFoundError } from '../../../domain/errors/DocumentNotFoundError.js'
 
@@ -74,6 +74,32 @@ export function createDocumentsRoutes(dependencies: Dependencies): Hono {
     }
 
     return c.json({ valid: true, signatures: result.value.map(toSignatureJson) }, 200)
+  })
+
+  documents.get('/documents', async (c) => {
+    const userId = c.req.query('userId')
+    if (typeof userId !== 'string' || userId.length === 0) {
+      return c.json({ error: { type: 'ValidationError', message: 'userId query parameter is required' } }, 400)
+    }
+
+    const summaries = await dependencies.listDocumentsUseCase.execute({ userId })
+    return c.json(summaries, 200)
+  })
+
+  documents.get('/documents/:documentId', async (c) => {
+    const documentId = c.req.param('documentId')
+    const userId = c.req.query('userId')
+    if (typeof userId !== 'string' || userId.length === 0) {
+      return c.json({ error: { type: 'ValidationError', message: 'userId query parameter is required' } }, 400)
+    }
+
+    const result = await dependencies.getDocumentUseCase.execute({ documentId, userId })
+    if (result.isFail()) {
+      const { status, body: errorBody } = mapDomainErrorToResponse(result.error)
+      return c.json(errorBody, status)
+    }
+
+    return c.json(toDocumentDetailJson(result.value), 200)
   })
 
   return documents

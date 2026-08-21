@@ -1,6 +1,7 @@
 import { Document } from '../../domain/entities/Document.js'
 import { Signature } from '../../domain/entities/Signature.js'
 import { User } from '../../domain/entities/User.js'
+import { DocumentDetailDto } from '../../use-cases/get-document/GetDocumentUseCase.js'
 
 export interface DocumentJson {
   id: string
@@ -42,6 +43,26 @@ export function toSignatureJson(signature: Signature): SignatureJson {
 
 export function decodeBase64(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, 'base64'))
+}
+
+export interface DocumentDetailJson {
+  id: string
+  title: string
+  uploaderId: string
+  signatures: Array<{ userId: string; signedAt: string }>
+  signedByUser: boolean
+  signingPayload: string | null
+}
+
+export function toDocumentDetailJson(detail: DocumentDetailDto): DocumentDetailJson {
+  return {
+    id: detail.id,
+    title: detail.title,
+    uploaderId: detail.uploaderId,
+    signatures: detail.signatures.map((s) => ({ userId: s.userId, signedAt: s.signedAt.toISOString() })),
+    signedByUser: detail.signedByUser,
+    signingPayload: detail.signingPayload === null ? null : Buffer.from(detail.signingPayload).toString('base64')
+  }
 }
 
 export interface UserJson {

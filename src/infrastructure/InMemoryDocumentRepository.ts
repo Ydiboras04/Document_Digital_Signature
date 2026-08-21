@@ -11,4 +11,8 @@ export class InMemoryDocumentRepository implements DocumentRepository {
   async findById(id: string): Promise<Document | null> {
     return this.documents.find((d) => d.id === id) ?? null
   }
+
+  async findAll(): Promise<Document[]> {
+    return [...this.documents]
+  }
 }
