@@ -10,6 +10,7 @@ import { SignatureVerificationFailedError } from '../../domain/errors/SignatureV
 import { BrokenChainError } from '../../domain/errors/BrokenChainError.js'
 import { InvalidUserError } from '../../domain/errors/InvalidUserError.js'
 import { DuplicateEmailError } from '../../domain/errors/DuplicateEmailError.js'
+import { AuthenticationFailedError } from '../../domain/errors/AuthenticationFailedError.js'
 
 describe('mapDomainErrorToResponse', () => {
   it('maps InvalidDocumentError to 400', () => {
@@ -58,6 +59,13 @@ describe('mapDomainErrorToResponse', () => {
   it('maps SignatureVerificationFailedError to 422', () => {
     const result = mapDomainErrorToResponse(new SignatureVerificationFailedError('user-1', 'doc-1'))
     expect(result.status).toBe(422)
+  })
+
+  it('maps AuthenticationFailedError to 401', () => {
+    const result = mapDomainErrorToResponse(new AuthenticationFailedError())
+    expect(result.status).toBe(401)
+    expect(result.body.error.type).toBe('AuthenticationFailedError')
+    expect(result.body.error.message).toBe('Authentication failed')
   })
 
   it('maps an unrecognized DomainError to 500', () => {

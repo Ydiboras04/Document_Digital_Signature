@@ -9,6 +9,7 @@ import { UserNotFoundError } from '../../domain/errors/UserNotFoundError.js'
 import { DuplicateSignatureError } from '../../domain/errors/DuplicateSignatureError.js'
 import { DuplicateEmailError } from '../../domain/errors/DuplicateEmailError.js'
 import { SignatureVerificationFailedError } from '../../domain/errors/SignatureVerificationFailedError.js'
+import { AuthenticationFailedError } from '../../domain/errors/AuthenticationFailedError.js'
 
 export interface ErrorResponse {
   status: ContentfulStatusCode
@@ -31,6 +32,7 @@ function statusForError(error: DomainError): ContentfulStatusCode {
   if (error instanceof UserNotFoundError) return 404
   if (error instanceof DuplicateSignatureError) return 409
   if (error instanceof DuplicateEmailError) return 409
+  if (error instanceof AuthenticationFailedError) return 401
   if (error instanceof SignatureVerificationFailedError) return 422
   return 500
 }
