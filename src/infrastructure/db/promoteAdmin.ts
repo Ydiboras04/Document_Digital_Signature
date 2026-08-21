@@ -33,4 +33,8 @@ async function promoteAdmin(): Promise<void> {
   process.exit(0)
 }
 
-promoteAdmin()
+promoteAdmin().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`Failed to promote admin: ${message}`)
+  process.exit(1)
+})

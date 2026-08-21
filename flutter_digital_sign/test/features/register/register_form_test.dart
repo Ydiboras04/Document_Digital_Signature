@@ -4,7 +4,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_digital_sign/features/register/presentation/widgets/register_form.dart';
 import 'package:flutter_digital_sign/core/network/user_api.dart';
 import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
-import 'package:flutter_digital_sign/features/next/presentation/pages/next_page.dart';
 import '../../core/network/fake_user_api.dart';
 
 void main() {
@@ -21,7 +20,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RegisterForm(userApi: fakeUserApi, identityStorage: identityStorage),
-          routes: {'/next': (context) => const NextPage()},
+          // A trivial placeholder stands in for NextPage here: this test only
+          // needs to confirm that registration navigated to the document list
+          // destination. Routing to the real NextPage would build a live
+          // AuthSession(authApi: HttpAuthApi()) and attempt a network call
+          // inside `flutter test`.
+          routes: {'/next': (context) => const Scaffold(body: Text('Documents'))},
         ),
       );
 
@@ -53,7 +57,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: RegisterForm(userApi: fakeUserApi, identityStorage: identityStorage),
-          routes: {'/next': (context) => const NextPage()},
+          routes: {'/next': (context) => const Scaffold(body: Text('Documents'))},
         ),
       );
 

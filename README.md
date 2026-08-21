@@ -116,3 +116,23 @@ When a user signs a document, the application builds a secure verification chain
 2. **Non-Repudiation:** Because private keys are bound to user hardware and biometrics, signers cannot falsely deny their actions.
 3. **Zero-Trust Server Design:** Compromising the central database or server does not allow an attacker to forge user signatures, as private keys are never stored server-side.
 4. **Verifiable Audit Trail:** Provides an unalterable, chronological sequence of approvals suitable for administrative and official workflows.
+
+---
+
+## 🚀 Setup & Bootstrapping
+
+### Environment
+
+Set `DATABASE_URL` and `JWT_SECRET` before running the server or any of the scripts below (both are documented in `.env.example`; the server refuses to start without `JWT_SECRET`).
+
+### Getting an admin: the first-run bootstrap
+
+Only one endpoint requires the admin role (`POST /documents`), and by design **there is no way to grant it over HTTP** — registration (`POST /users`) always creates a regular user, on purpose. A fresh deployment therefore starts with zero admins, and the product stays inert (nobody can upload a document) until an operator with database access promotes someone. This is expected, not a bug — do this once per environment:
+
+1. Run migrations: `npm run db:migrate`
+2. (Dev only) Seed fixture data: `npm run db:seed`
+3. Register a user through the app (or via `POST /users`) — this is how that person gets an identity.
+4. Promote that user to admin from a machine with `DATABASE_URL` access: `npm run db:promote-admin -- <that user's email>`
+5. Restart the client, or wait for the user's current session token to expire.
+
+**Promotion is not instant.** The server reads the admin flag from the JWT, not from the database, on every request — so a promotion only takes effect the next time that user obtains a token: immediately if they restart the app (or otherwise re-authenticate), or automatically within an hour when their current token expires. Seeing the upload control stay hidden right after running the script is expected, not a failure — it is the fail-closed trade-off described in the design spec, and it resolves itself without further action.

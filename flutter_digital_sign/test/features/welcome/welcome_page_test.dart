@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_digital_sign/features/welcome/presentation/pages/welcome_page.dart';
-import 'package:flutter_digital_sign/features/next/presentation/pages/next_page.dart';
 import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
 
 void main() {
@@ -28,7 +27,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: WelcomePage(identityStorage: identityStorage),
-          routes: {'/next': (context) => const NextPage()},
+          // A trivial placeholder stands in for NextPage here: this test only
+          // needs to confirm WelcomePage navigated somewhere and stopped
+          // showing 'Start'. Routing to the real NextPage would build a live
+          // AuthSession(authApi: HttpAuthApi()) and attempt a network call
+          // inside `flutter test`.
+          routes: {'/next': (context) => const Scaffold(body: Text('Documents'))},
         ),
       );
       await tester.pumpAndSettle();
