@@ -42,4 +42,14 @@ describe('PostgresDocumentRepository', () => {
 
     expect(found).toBeNull()
   })
+
+  it('finds all saved documents', async () => {
+    const repository = new PostgresDocumentRepository()
+    await repository.save(aDocument('doc-1'))
+    await repository.save(aDocument('doc-2'))
+
+    const found = await repository.findAll()
+
+    expect(found.map((d) => d.id).sort()).toEqual(['doc-1', 'doc-2'])
+  })
 })

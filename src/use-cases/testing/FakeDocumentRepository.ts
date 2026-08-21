@@ -11,4 +11,8 @@ export class FakeDocumentRepository implements DocumentRepository {
   async findById(id: string): Promise<Document | null> {
     return this.savedDocuments.find((d) => d.id === id) ?? null
   }
+
+  async findAll(): Promise<Document[]> {
+    return [...this.savedDocuments]
+  }
 }

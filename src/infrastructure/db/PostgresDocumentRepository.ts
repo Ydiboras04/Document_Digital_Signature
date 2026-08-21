@@ -30,4 +30,17 @@ export class PostgresDocumentRepository implements DocumentRepository {
       uploaderId: row.uploaderId
     }).value
   }
+
+  async findAll(): Promise<Document[]> {
+    const rows = await db.select().from(documents)
+    return rows.map((row) =>
+      Document.create({
+        id: row.id,
+        title: row.title,
+        filePath: row.filePath,
+        originalHash: Hash.create(row.originalHash).value,
+        uploaderId: row.uploaderId
+      }).value
+    )
+  }
 }
