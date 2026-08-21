@@ -8,6 +8,10 @@ void main() {
   Widget pageWith(FakeDocumentApi api) {
     return MaterialApp(
       home: VerificationPage(
+        // Keyed by the fake so that pumping a second, different api at the
+        // same widget location creates a fresh State (and re-runs initState)
+        // instead of Flutter reusing the old one via didUpdateWidget.
+        key: ValueKey(api),
         documentId: 'doc-1',
         documentTitle: 'Contract_Proposal.pdf',
         documentApi: api,
@@ -72,11 +76,70 @@ void main() {
 
     expect(find.text('Retry'), findsOneWidget);
     expect(find.textContaining('Verification failed'), findsNothing);
+    expect(
+      find.textContaining('Could not reach the server to verify this document.'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('No signatures'), findsOneWidget);
     expect(calls, 2);
+  });
+
+  testWidgets('shows the server message with no Retry when the caller lacks permission', (tester) async {
+    final fakeApi = FakeDocumentApi()
+      ..onVerifyDocument = (documentId) => throw VerificationRequestException(
+            403,
+            'Only an administrator may verify document signatures',
+          );
+
+    await tester.pumpWidget(pageWith(fakeApi));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Only an administrator may verify document signatures'), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+    expect(find.textContaining('Verification failed'), findsNothing);
+    expect(
+      find.textContaining('Could not reach the server to verify this document.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('shows a not-found message with no Retry for a missing document', (tester) async {
+    final fakeApi = FakeDocumentApi()
+      ..onVerifyDocument = (documentId) => throw VerificationRequestException(
+            404,
+            'Document doc-1 was not found',
+          );
+
+    await tester.pumpWidget(pageWith(fakeApi));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Document doc-1 was not found'), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+    expect(find.textContaining('Verification failed'), findsNothing);
+    expect(
+      find.textContaining('Could not reach the server to verify this document.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a permissions error and an unreachable server do not render alike', (tester) async {
+    final forbiddenApi = FakeDocumentApi()
+      ..onVerifyDocument =
+          (documentId) => throw VerificationRequestException(403, 'Only an administrator may verify document signatures');
+    await tester.pumpWidget(pageWith(forbiddenApi));
+    await tester.pumpAndSettle();
+    final forbiddenMessage =
+        (find.textContaining('administrator').evaluate().single.widget as Text).data;
+
+    final unreachableApi = FakeDocumentApi()..onVerifyDocument = (documentId) => throw Exception('network blip');
+    await tester.pumpWidget(pageWith(unreachableApi));
+    await tester.pumpAndSettle();
+    final unreachableMessage = (find.textContaining('reach the server').evaluate().single.widget as Text).data;
+
+    expect(forbiddenMessage, isNot(equals(unreachableMessage)));
   });
 }

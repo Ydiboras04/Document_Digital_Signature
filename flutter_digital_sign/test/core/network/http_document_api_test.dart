@@ -321,7 +321,7 @@ void main() {
       expect((result as VerificationInvalid).reason, 'cryptographic verification failed');
     });
 
-    test('throws on a 403 rather than reporting it as a failed verification', () async {
+    test('throws a VerificationRequestException on a 403 rather than reporting it as a failed verification', () async {
       final mockClient = MockClient((request) async {
         return http.Response(
           jsonEncode({
@@ -332,7 +332,35 @@ void main() {
       });
       final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      expect(() => api.verifyDocument('doc-1'), throwsA(isA<Exception>()));
+      await expectLater(
+        () => api.verifyDocument('doc-1'),
+        throwsA(
+          isA<VerificationRequestException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having((e) => e.message, 'message', 'Only an administrator may verify document signatures'),
+        ),
+      );
+    });
+
+    test('throws a VerificationRequestException on a 404 with the server message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'error': {'type': 'DocumentNotFoundError', 'message': 'Document doc-1 was not found'}
+          }),
+          404,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      await expectLater(
+        () => api.verifyDocument('doc-1'),
+        throwsA(
+          isA<VerificationRequestException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.message, 'message', 'Document doc-1 was not found'),
+        ),
+      );
     });
   });
 }

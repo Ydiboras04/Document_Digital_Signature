@@ -26,6 +26,10 @@ class VerificationPage extends StatefulWidget {
 class _VerificationPageState extends State<VerificationPage> {
   VerificationResult? _result;
   String? _errorMessage;
+  // Retry is offered only when retrying could plausibly help -- never for a
+  // permissions failure or a missing document, both of which will fail
+  // identically on every retry.
+  bool _canRetry = true;
 
   @override
   void initState() {
@@ -37,6 +41,7 @@ class _VerificationPageState extends State<VerificationPage> {
     setState(() {
       _result = null;
       _errorMessage = null;
+      _canRetry = true;
     });
     try {
       final result = await widget.documentApi.verifyDocument(widget.documentId);
@@ -44,12 +49,32 @@ class _VerificationPageState extends State<VerificationPage> {
       setState(() {
         _result = result;
       });
+    } on VerificationRequestException catch (e) {
+      // A 403 and a 404 are not verification outcomes and not network
+      // problems either -- rendering either as "can't reach the server"
+      // sends an admin to debug their connection instead of their
+      // permissions or the document id.
+      if (!mounted) return;
+      setState(() {
+        switch (e.statusCode) {
+          case 403:
+            _errorMessage = e.message;
+            _canRetry = false;
+          case 404:
+            _errorMessage = e.message;
+            _canRetry = false;
+          default:
+            _errorMessage = 'Could not reach the server to verify this document.';
+            _canRetry = true;
+        }
+      });
     } catch (_) {
       // Deliberately NOT rendered as a verification failure: the request did
       // not complete, so we know nothing about the document either way.
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Could not reach the server to verify this document.';
+        _canRetry = true;
       });
     }
   }
@@ -79,8 +104,10 @@ class _VerificationPageState extends State<VerificationPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(errorMessage, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: _verify, child: const Text('Retry')),
+            if (_canRetry) ...[
+              const SizedBox(height: 12),
+              ElevatedButton(onPressed: _verify, child: const Text('Retry')),
+            ],
           ],
         ),
       );

@@ -115,6 +115,21 @@ class VerifiedSigner {
   }
 }
 
+/// Thrown by [DocumentApi.verifyDocument] for any non-200 response. Carries
+/// the status code and the server's message so the caller can tell a
+/// permissions failure (403) and a missing document (404) apart from each
+/// other and from a genuine transport failure -- collapsing them into one
+/// generic exception is exactly what made all three render as "can't reach
+/// the server" in the UI.
+class VerificationRequestException implements Exception {
+  final int statusCode;
+  final String message;
+  VerificationRequestException(this.statusCode, this.message);
+
+  @override
+  String toString() => 'VerificationRequestException($statusCode): $message';
+}
+
 sealed class VerificationResult {}
 
 /// The chain verified. [signers] contains only signatures that actually
@@ -246,9 +261,14 @@ class HttpDocumentApi implements DocumentApi {
 
     // A 403 or 404 is not a verification outcome. Reporting either as
     // VerificationInvalid would tell an admin a document was tampered with
-    // when the real problem was access or a bad id.
+    // when the real problem was access or a bad id. The typed exception
+    // carries the status code so the caller can tell those apart from a
+    // genuine network failure instead of collapsing all three into one.
     if (response.statusCode != 200) {
-      throw Exception('Failed to verify document');
+      throw VerificationRequestException(
+        response.statusCode,
+        _errorMessage(response, 'Failed to verify document'),
+      );
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
