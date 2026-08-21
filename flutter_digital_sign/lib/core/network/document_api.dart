@@ -107,10 +107,8 @@ class HttpDocumentApi implements DocumentApi {
   HttpDocumentApi({
     this.baseUrl = 'http://localhost:3000',
     http.Client? client,
-    required AuthSession authSession,
-  })  : _client = client ?? http.Client(),
-        // ignore: prefer_initializing_formals
-        _authSession = authSession;
+    required this._authSession,
+  }) : _client = client ?? http.Client();
 
   /// Sends [request] with a bearer token. On a 401 the token is discarded and
   /// the request is retried exactly once with a freshly obtained one, which is

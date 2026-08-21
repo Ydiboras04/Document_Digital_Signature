@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_digital_sign/app/routes/app_routes.dart';
 import 'package:flutter_digital_sign/features/next/presentation/pages/next_page.dart';
+import 'package:flutter_digital_sign/core/network/auth_api.dart';
 import 'package:flutter_digital_sign/core/network/document_api.dart';
 import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
 import 'core/network/fake_document_api.dart';
@@ -110,5 +112,31 @@ void main() {
     expect(find.text('Failed to load documents.'), findsNothing);
     expect(find.text('Contract_Proposal.pdf'), findsOneWidget);
     expect(callCount, 2);
+  });
+
+  testWidgets('recovers from a stale identity by clearing it and returning to registration',
+      (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onListDocuments = () {
+        throw UnknownIdentityException();
+      };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {
+          AppRoutes.register: (context) => const Scaffold(body: Text('Register Page')),
+        },
+        home: NextPage(documentApi: fakeApi, identityStorage: IdentityStorage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Register Page'), findsOneWidget);
+    expect(
+      find.text('This device\'s identity is no longer recognised. Please register again.'),
+      findsOneWidget,
+    );
+    expect(await IdentityStorage().load(), isNull);
   });
 }

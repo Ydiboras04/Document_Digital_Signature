@@ -15,6 +15,23 @@ Future<AuthSession> aSession({String token = 'tok-1'}) async {
   return AuthSession(authApi: authApi, identityStorage: identityStorage);
 }
 
+/// A session whose fake auth API issues [tokens] in order, one per handshake
+/// (i.e. one per call to `token()` that isn't served from the cache). Used to
+/// prove that a 401 actually discards the stale token rather than just
+/// resending it.
+Future<AuthSession> aSessionWithTokens(List<String> tokens) async {
+  final identityStorage = IdentityStorage();
+  await identityStorage.save('user-1', List<int>.filled(32, 1), List<int>.generate(32, (i) => i));
+  var handshakes = 0;
+  final authApi = FakeAuthApi()
+    ..onExchangeForToken = ((userId, signature) {
+      final token = tokens[handshakes];
+      if (handshakes < tokens.length - 1) handshakes++;
+      return token;
+    });
+  return AuthSession(authApi: authApi, identityStorage: identityStorage);
+}
+
 void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
@@ -69,6 +86,28 @@ void main() {
       await expectLater(() => api.listDocuments(), throwsA(isA<Exception>()));
       expect(calls, 2);
     });
+
+    test('discards the stale token so the retry carries a freshly issued one', () async {
+      var calls = 0;
+      final mockClient = MockClient((request) async {
+        calls++;
+        if (calls == 1) {
+          expect(request.headers['Authorization'], 'Bearer tok-1');
+          return http.Response(jsonEncode({'error': 'expired'}), 401);
+        }
+        expect(request.headers['Authorization'], 'Bearer tok-2');
+        return http.Response(jsonEncode([]), 200);
+      });
+      final api = HttpDocumentApi(
+        client: mockClient,
+        authSession: await aSessionWithTokens(['tok-1', 'tok-2']),
+      );
+
+      final result = await api.listDocuments();
+
+      expect(calls, 2);
+      expect(result, isEmpty);
+    });
   });
 
   group('HttpDocumentApi.getDocument', () {
@@ -94,6 +133,32 @@ void main() {
 
       expect(result.signingPayload, [1, 2, 3]);
     });
+
+    test('decodes signatures and a null signing payload once signed', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'id': 'doc-1',
+            'title': 'Contract',
+            'uploaderId': 'user-1',
+            'signatures': [
+              {'userId': 'user-1', 'signedAt': '2026-08-20T00:00:00.000Z'}
+            ],
+            'signedByUser': true,
+            'signingPayload': null,
+          }),
+          200,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.getDocument('doc-1');
+
+      expect(result.signedByUser, true);
+      expect(result.signingPayload, isNull);
+      expect(result.signatures, hasLength(1));
+      expect(result.signatures.first.userId, 'user-1');
+    });
   });
 
   group('HttpDocumentApi.uploadDocument', () {
@@ -113,6 +178,23 @@ void main() {
 
       expect(result, isA<UploadSuccess>());
       expect((result as UploadSuccess).documentId, 'doc-1');
+    });
+
+    test('returns UploadFailure with the server message on a validation error', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'error': {'type': 'ValidationError', 'message': 'title and fileBytes are required strings'}
+          }),
+          400,
+        );
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.uploadDocument('', [1, 2, 3]);
+
+      expect(result, isA<UploadFailure>());
+      expect((result as UploadFailure).message, 'title and fileBytes are required strings');
     });
   });
 
