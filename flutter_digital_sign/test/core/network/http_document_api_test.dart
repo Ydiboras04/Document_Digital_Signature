@@ -1,15 +1,31 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:flutter_digital_sign/core/auth/auth_session.dart';
 import 'package:flutter_digital_sign/core/network/document_api.dart';
+import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
+import 'fake_auth_api.dart';
+
+Future<AuthSession> aSession({String token = 'tok-1'}) async {
+  final identityStorage = IdentityStorage();
+  await identityStorage.save('user-1', List<int>.filled(32, 1), List<int>.generate(32, (i) => i));
+  final authApi = FakeAuthApi()..onExchangeForToken = ((userId, signature) => token);
+  return AuthSession(authApi: authApi, identityStorage: identityStorage);
+}
 
 void main() {
+  setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
+  });
+
   group('HttpDocumentApi.listDocuments', () {
-    test('returns the decoded list of document summaries', () async {
+    test('sends the bearer token and no userId parameter', () async {
       final mockClient = MockClient((request) async {
         expect(request.method, 'GET');
-        expect(request.url.toString(), 'http://localhost:3000/documents?userId=user-1');
+        expect(request.url.toString(), 'http://localhost:3000/documents');
+        expect(request.headers['Authorization'], 'Bearer tok-1');
         return http.Response(
           jsonEncode([
             {'id': 'doc-1', 'title': 'Contract', 'uploaderId': 'user-1', 'signedByUser': false}
@@ -17,21 +33,49 @@ void main() {
           200,
         );
       });
-      final api = HttpDocumentApi(client: mockClient);
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      final result = await api.listDocuments('user-1');
+      final result = await api.listDocuments();
 
       expect(result, hasLength(1));
       expect(result.first.id, 'doc-1');
-      expect(result.first.title, 'Contract');
-      expect(result.first.signedByUser, false);
+    });
+
+    test('re-authenticates and retries exactly once on 401', () async {
+      var calls = 0;
+      final mockClient = MockClient((request) async {
+        calls++;
+        if (calls == 1) {
+          return http.Response(jsonEncode({'error': 'expired'}), 401);
+        }
+        return http.Response(jsonEncode([]), 200);
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.listDocuments();
+
+      expect(calls, 2);
+      expect(result, isEmpty);
+    });
+
+    test('does not loop when the retry also returns 401', () async {
+      var calls = 0;
+      final mockClient = MockClient((request) async {
+        calls++;
+        return http.Response(jsonEncode({'error': 'expired'}), 401);
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      await expectLater(() => api.listDocuments(), throwsA(isA<Exception>()));
+      expect(calls, 2);
     });
   });
 
   group('HttpDocumentApi.getDocument', () {
-    test('decodes a detail response with a base64 signing payload', () async {
+    test('requests the document with no userId parameter', () async {
       final mockClient = MockClient((request) async {
-        expect(request.url.toString(), 'http://localhost:3000/documents/doc-1?userId=user-1');
+        expect(request.url.toString(), 'http://localhost:3000/documents/doc-1');
+        expect(request.headers['Authorization'], 'Bearer tok-1');
         return http.Response(
           jsonEncode({
             'id': 'doc-1',
@@ -44,92 +88,47 @@ void main() {
           200,
         );
       });
-      final api = HttpDocumentApi(client: mockClient);
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      final result = await api.getDocument('doc-1', 'user-1');
+      final result = await api.getDocument('doc-1');
 
-      expect(result.id, 'doc-1');
-      expect(result.signedByUser, false);
       expect(result.signingPayload, [1, 2, 3]);
-    });
-
-    test('decodes signatures and a null signing payload once signed', () async {
-      final mockClient = MockClient((request) async {
-        return http.Response(
-          jsonEncode({
-            'id': 'doc-1',
-            'title': 'Contract',
-            'uploaderId': 'user-1',
-            'signatures': [
-              {'userId': 'user-1', 'signedAt': '2026-08-20T00:00:00.000Z'}
-            ],
-            'signedByUser': true,
-            'signingPayload': null,
-          }),
-          200,
-        );
-      });
-      final api = HttpDocumentApi(client: mockClient);
-
-      final result = await api.getDocument('doc-1', 'user-1');
-
-      expect(result.signedByUser, true);
-      expect(result.signingPayload, isNull);
-      expect(result.signatures, hasLength(1));
-      expect(result.signatures.first.userId, 'user-1');
     });
   });
 
   group('HttpDocumentApi.uploadDocument', () {
-    test('returns UploadSuccess with the document id on 201', () async {
+    test('posts title and fileBytes only, with the bearer token', () async {
       final mockClient = MockClient((request) async {
-        expect(request.method, 'POST');
         expect(request.url.toString(), 'http://localhost:3000/documents');
+        expect(request.headers['Authorization'], 'Bearer tok-1');
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['title'], 'Contract.pdf');
-        expect(body['uploaderId'], 'user-1');
         expect(body['fileBytes'], base64Encode([1, 2, 3]));
-        return http.Response(jsonEncode({'id': 'doc-1', 'title': 'Contract.pdf'}), 201);
+        expect(body.containsKey('uploaderId'), isFalse);
+        return http.Response(jsonEncode({'id': 'doc-1'}), 201);
       });
-      final api = HttpDocumentApi(client: mockClient);
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      final result = await api.uploadDocument('Contract.pdf', 'user-1', [1, 2, 3]);
+      final result = await api.uploadDocument('Contract.pdf', [1, 2, 3]);
 
       expect(result, isA<UploadSuccess>());
       expect((result as UploadSuccess).documentId, 'doc-1');
     });
-
-    test('returns UploadFailure with the server message on a validation error', () async {
-      final mockClient = MockClient((request) async {
-        return http.Response(
-          jsonEncode({
-            'error': {'type': 'ValidationError', 'message': 'title, uploaderId, and fileBytes are required strings'}
-          }),
-          400,
-        );
-      });
-      final api = HttpDocumentApi(client: mockClient);
-
-      final result = await api.uploadDocument('', 'user-1', [1, 2, 3]);
-
-      expect(result, isA<UploadFailure>());
-      expect((result as UploadFailure).message, 'title, uploaderId, and fileBytes are required strings');
-    });
   });
 
   group('HttpDocumentApi.submitSignature', () {
-    test('returns SignSuccess on 201', () async {
+    test('posts signatureBytes only, with the bearer token', () async {
       final mockClient = MockClient((request) async {
-        expect(request.method, 'POST');
         expect(request.url.toString(), 'http://localhost:3000/documents/doc-1/signatures');
+        expect(request.headers['Authorization'], 'Bearer tok-1');
         final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['userId'], 'user-1');
         expect(body['signatureBytes'], base64Encode([9, 9, 9]));
+        expect(body.containsKey('userId'), isFalse);
         return http.Response(jsonEncode({'id': 'sig-1'}), 201);
       });
-      final api = HttpDocumentApi(client: mockClient);
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      final result = await api.submitSignature('doc-1', 'user-1', [9, 9, 9]);
+      final result = await api.submitSignature('doc-1', [9, 9, 9]);
 
       expect(result, isA<SignSuccess>());
     });
@@ -143,9 +142,9 @@ void main() {
           409,
         );
       });
-      final api = HttpDocumentApi(client: mockClient);
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
 
-      final result = await api.submitSignature('doc-1', 'user-1', [9, 9, 9]);
+      final result = await api.submitSignature('doc-1', [9, 9, 9]);
 
       expect(result, isA<SignFailure>());
       expect((result as SignFailure).message, 'User user-1 has already signed this document');

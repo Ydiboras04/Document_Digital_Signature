@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../auth/auth_session.dart';
 
 class DocumentSummary {
   final String id;
@@ -92,22 +93,47 @@ class SignFailure extends SignResult {
 }
 
 abstract class DocumentApi {
-  Future<List<DocumentSummary>> listDocuments(String userId);
-  Future<DocumentDetail> getDocument(String documentId, String userId);
-  Future<UploadResult> uploadDocument(String title, String uploaderId, List<int> fileBytes);
-  Future<SignResult> submitSignature(String documentId, String userId, List<int> signatureBytes);
+  Future<List<DocumentSummary>> listDocuments();
+  Future<DocumentDetail> getDocument(String documentId);
+  Future<UploadResult> uploadDocument(String title, List<int> fileBytes);
+  Future<SignResult> submitSignature(String documentId, List<int> signatureBytes);
 }
 
 class HttpDocumentApi implements DocumentApi {
   final String baseUrl;
   final http.Client _client;
+  final AuthSession _authSession;
 
-  HttpDocumentApi({this.baseUrl = 'http://localhost:3000', http.Client? client})
-      : _client = client ?? http.Client();
+  HttpDocumentApi({
+    this.baseUrl = 'http://localhost:3000',
+    http.Client? client,
+    required AuthSession authSession,
+  })  : _client = client ?? http.Client(),
+        // ignore: prefer_initializing_formals
+        _authSession = authSession;
+
+  /// Sends [request] with a bearer token. On a 401 the token is discarded and
+  /// the request is retried exactly once with a freshly obtained one, which is
+  /// what makes token expiry invisible to the caller.
+  Future<http.Response> _send(Future<http.Response> Function(String token) request) async {
+    var response = await request(await _authSession.token());
+    if (response.statusCode == 401) {
+      _authSession.invalidate();
+      response = await request(await _authSession.token());
+    }
+    return response;
+  }
+
+  Map<String, String> _headers(String token) => {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
 
   @override
-  Future<List<DocumentSummary>> listDocuments(String userId) async {
-    final response = await _client.get(Uri.parse('$baseUrl/documents?userId=$userId'));
+  Future<List<DocumentSummary>> listDocuments() async {
+    final response = await _send(
+      (token) => _client.get(Uri.parse('$baseUrl/documents'), headers: _headers(token)),
+    );
     if (response.statusCode != 200) {
       throw Exception('Failed to load documents');
     }
@@ -116,8 +142,10 @@ class HttpDocumentApi implements DocumentApi {
   }
 
   @override
-  Future<DocumentDetail> getDocument(String documentId, String userId) async {
-    final response = await _client.get(Uri.parse('$baseUrl/documents/$documentId?userId=$userId'));
+  Future<DocumentDetail> getDocument(String documentId) async {
+    final response = await _send(
+      (token) => _client.get(Uri.parse('$baseUrl/documents/$documentId'), headers: _headers(token)),
+    );
     if (response.statusCode != 200) {
       throw Exception('Failed to load document');
     }
@@ -126,19 +154,13 @@ class HttpDocumentApi implements DocumentApi {
   }
 
   @override
-  Future<UploadResult> uploadDocument(
-    String title,
-    String uploaderId,
-    List<int> fileBytes,
-  ) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/documents'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'title': title,
-        'uploaderId': uploaderId,
-        'fileBytes': base64Encode(fileBytes),
-      }),
+  Future<UploadResult> uploadDocument(String title, List<int> fileBytes) async {
+    final response = await _send(
+      (token) => _client.post(
+        Uri.parse('$baseUrl/documents'),
+        headers: _headers(token),
+        body: jsonEncode({'title': title, 'fileBytes': base64Encode(fileBytes)}),
+      ),
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -148,23 +170,17 @@ class HttpDocumentApi implements DocumentApi {
     }
 
     final error = body['error'] as Map<String, dynamic>?;
-    final message = error?['message'] as String? ?? 'Upload failed';
-    return UploadFailure(message);
+    return UploadFailure(error?['message'] as String? ?? 'Upload failed');
   }
 
   @override
-  Future<SignResult> submitSignature(
-    String documentId,
-    String userId,
-    List<int> signatureBytes,
-  ) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/documents/$documentId/signatures'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'userId': userId,
-        'signatureBytes': base64Encode(signatureBytes),
-      }),
+  Future<SignResult> submitSignature(String documentId, List<int> signatureBytes) async {
+    final response = await _send(
+      (token) => _client.post(
+        Uri.parse('$baseUrl/documents/$documentId/signatures'),
+        headers: _headers(token),
+        body: jsonEncode({'signatureBytes': base64Encode(signatureBytes)}),
+      ),
     );
 
     if (response.statusCode == 201) {
@@ -173,7 +189,6 @@ class HttpDocumentApi implements DocumentApi {
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final error = body['error'] as Map<String, dynamic>?;
-    final message = error?['message'] as String? ?? 'Signing failed';
-    return SignFailure(message);
+    return SignFailure(error?['message'] as String? ?? 'Signing failed');
   }
 }

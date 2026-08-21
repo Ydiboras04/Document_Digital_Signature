@@ -11,6 +11,8 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
   });
 
+  // The private key must be a real 32-byte Ed25519 seed: these tests exercise
+  // the genuine signing path via Ed25519KeyPair.sign.
   Future<void> saveIdentity() async {
     await IdentityStorage().save('user-1', [1, 2, 3], List.generate(32, (i) => i));
   }
@@ -18,7 +20,7 @@ void main() {
   testWidgets('shows document details and signs successfully', (tester) async {
     await saveIdentity();
     final fakeApi = FakeDocumentApi()
-      ..onGetDocument = (documentId, userId) => DocumentDetail(
+      ..onGetDocument = (documentId) => DocumentDetail(
             id: 'doc-1',
             title: 'Contract_Proposal.pdf',
             uploaderId: 'user-2',
@@ -46,14 +48,14 @@ void main() {
 
     expect(fakeApi.signCalls, hasLength(1));
     expect(fakeApi.signCalls.first.documentId, 'doc-1');
-    expect(fakeApi.signCalls.first.userId, 'user-1');
+    expect(fakeApi.signCalls.first.signatureBytes, hasLength(64));
     expect(find.text('Signature Confirmed'), findsOneWidget);
   });
 
   testWidgets('shows a read-only view for a document already signed by this user', (tester) async {
     await saveIdentity();
     final fakeApi = FakeDocumentApi()
-      ..onGetDocument = (documentId, userId) => DocumentDetail(
+      ..onGetDocument = (documentId) => DocumentDetail(
             id: 'doc-1',
             title: 'Contract_Proposal.pdf',
             uploaderId: 'user-2',
@@ -80,7 +82,7 @@ void main() {
   testWidgets('confirmation page returns to the document list, not Welcome', (tester) async {
     await saveIdentity();
     final fakeApi = FakeDocumentApi()
-      ..onGetDocument = (documentId, userId) => DocumentDetail(
+      ..onGetDocument = (documentId) => DocumentDetail(
             id: 'doc-1',
             title: 'Contract_Proposal.pdf',
             uploaderId: 'user-2',
@@ -137,7 +139,7 @@ void main() {
     await saveIdentity();
     var getCallCount = 0;
     final fakeApi = FakeDocumentApi()
-      ..onGetDocument = (documentId, userId) {
+      ..onGetDocument = (documentId) {
         getCallCount++;
         final alreadySigned = getCallCount > 1;
         return DocumentDetail(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../pages/document_details_page.dart';
+import '../../../../app/routes/app_routes.dart';
+import '../../../../core/network/auth_api.dart';
 import '../../../../core/network/document_api.dart';
 import '../../../../core/storage/identity_storage.dart';
 
@@ -40,12 +42,14 @@ class _NextContentState extends State<NextContent> {
     }
     _userId = identity.userId;
     try {
-      final documents = await widget.documentApi.listDocuments(identity.userId);
+      final documents = await widget.documentApi.listDocuments();
       if (!mounted) return;
       setState(() {
         _documents = documents;
         _errorMessage = null;
       });
+    } on UnknownIdentityException {
+      await _recoverFromStaleIdentity();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -54,13 +58,25 @@ class _NextContentState extends State<NextContent> {
     }
   }
 
+  /// The server does not know this device's identity -- most likely the
+  /// database was rebuilt. The private key can never be re-associated, so the
+  /// only way forward is to discard it and register again.
+  Future<void> _recoverFromStaleIdentity() async {
+    await widget.identityStorage.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This device\'s identity is no longer recognised. Please register again.')),
+    );
+    Navigator.pushReplacementNamed(context, AppRoutes.register);
+  }
+
   Future<void> _upload() async {
     final userId = _userId;
     if (userId == null) return;
     final file = await FilePicker.pickFile();
     if (file == null) return;
     final bytes = await file.readAsBytes();
-    final result = await widget.documentApi.uploadDocument(file.name, userId, bytes);
+    final result = await widget.documentApi.uploadDocument(file.name, bytes);
     if (!mounted) return;
     switch (result) {
       case UploadSuccess():

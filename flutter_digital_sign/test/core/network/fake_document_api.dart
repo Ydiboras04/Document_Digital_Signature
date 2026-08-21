@@ -1,37 +1,37 @@
 import 'package:flutter_digital_sign/core/network/document_api.dart';
 
 class FakeDocumentApi implements DocumentApi {
-  List<DocumentSummary> Function(String userId)? onListDocuments;
-  DocumentDetail Function(String documentId, String userId)? onGetDocument;
-  UploadResult Function(String title, String uploaderId, List<int> fileBytes)? onUploadDocument;
-  SignResult Function(String documentId, String userId, List<int> signatureBytes)? onSubmitSignature;
+  List<DocumentSummary> Function()? onListDocuments;
+  DocumentDetail Function(String documentId)? onGetDocument;
+  UploadResult Function(String title, List<int> fileBytes)? onUploadDocument;
+  SignResult Function(String documentId, List<int> signatureBytes)? onSubmitSignature;
 
-  final List<String> listCalls = [];
-  final List<({String documentId, String userId})> getCalls = [];
-  final List<({String title, String uploaderId, List<int> fileBytes})> uploadCalls = [];
-  final List<({String documentId, String userId, List<int> signatureBytes})> signCalls = [];
+  int listCalls = 0;
+  final List<String> getCalls = [];
+  final List<({String title, List<int> fileBytes})> uploadCalls = [];
+  final List<({String documentId, List<int> signatureBytes})> signCalls = [];
 
   @override
-  Future<List<DocumentSummary>> listDocuments(String userId) async {
-    listCalls.add(userId);
-    return onListDocuments?.call(userId) ?? [];
+  Future<List<DocumentSummary>> listDocuments() async {
+    listCalls++;
+    return onListDocuments?.call() ?? [];
   }
 
   @override
-  Future<DocumentDetail> getDocument(String documentId, String userId) async {
-    getCalls.add((documentId: documentId, userId: userId));
-    return onGetDocument!.call(documentId, userId);
+  Future<DocumentDetail> getDocument(String documentId) async {
+    getCalls.add(documentId);
+    return onGetDocument!.call(documentId);
   }
 
   @override
-  Future<UploadResult> uploadDocument(String title, String uploaderId, List<int> fileBytes) async {
-    uploadCalls.add((title: title, uploaderId: uploaderId, fileBytes: fileBytes));
-    return onUploadDocument?.call(title, uploaderId, fileBytes) ?? UploadSuccess('fake-document-id');
+  Future<UploadResult> uploadDocument(String title, List<int> fileBytes) async {
+    uploadCalls.add((title: title, fileBytes: fileBytes));
+    return onUploadDocument?.call(title, fileBytes) ?? UploadSuccess('fake-document-id');
   }
 
   @override
-  Future<SignResult> submitSignature(String documentId, String userId, List<int> signatureBytes) async {
-    signCalls.add((documentId: documentId, userId: userId, signatureBytes: signatureBytes));
-    return onSubmitSignature?.call(documentId, userId, signatureBytes) ?? SignSuccess();
+  Future<SignResult> submitSignature(String documentId, List<int> signatureBytes) async {
+    signCalls.add((documentId: documentId, signatureBytes: signatureBytes));
+    return onSubmitSignature?.call(documentId, signatureBytes) ?? SignSuccess();
   }
 }

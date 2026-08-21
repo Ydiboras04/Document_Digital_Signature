@@ -18,7 +18,7 @@ void main() {
   testWidgets('shows the real document list and opens document details', (tester) async {
     await saveIdentity();
     final fakeApi = FakeDocumentApi()
-      ..onListDocuments = ((userId) => [
+      ..onListDocuments = (() => [
             DocumentSummary(
               id: 'doc-1',
               title: 'Contract_Proposal.pdf',
@@ -26,7 +26,7 @@ void main() {
               signedByUser: false,
             ),
           ])
-      ..onGetDocument = (documentId, userId) => DocumentDetail(
+      ..onGetDocument = (documentId) => DocumentDetail(
             id: 'doc-1',
             title: 'Contract_Proposal.pdf',
             uploaderId: 'user-1',
@@ -44,7 +44,7 @@ void main() {
 
     expect(find.text('Documents'), findsOneWidget);
     expect(find.text('Contract_Proposal.pdf'), findsOneWidget);
-    expect(fakeApi.listCalls, ['user-1']);
+    expect(fakeApi.listCalls, 1);
 
     await tester.tap(find.text('Contract_Proposal.pdf'));
     await tester.pumpAndSettle();
@@ -55,7 +55,7 @@ void main() {
   testWidgets('shows a "Signed" badge for a document the user already signed', (tester) async {
     await saveIdentity();
     final fakeApi = FakeDocumentApi()
-      ..onListDocuments = (userId) => [
+      ..onListDocuments = () => [
             DocumentSummary(
               id: 'doc-1',
               title: 'Contract_Proposal.pdf',
@@ -78,7 +78,7 @@ void main() {
     await saveIdentity();
     var callCount = 0;
     final fakeApi = FakeDocumentApi()
-      ..onListDocuments = (userId) {
+      ..onListDocuments = () {
         callCount++;
         if (callCount == 1) {
           throw Exception('network blip');

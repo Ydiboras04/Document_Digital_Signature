@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'signing_confirmation_page.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/crypto/ed25519_key_pair.dart';
+import '../../../../core/network/auth_api.dart';
 import '../../../../core/network/document_api.dart';
 import '../../../../core/storage/identity_storage.dart';
 
@@ -24,33 +26,34 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
   late final DocumentApi _documentApi;
   late final IdentityStorage _identityStorage;
   DocumentDetail? _detail;
-  String? _userId;
   String? _errorMessage;
   bool _isSigning = false;
 
   @override
   void initState() {
     super.initState();
-    _documentApi = widget.documentApi ?? HttpDocumentApi();
     _identityStorage = widget.identityStorage ?? IdentityStorage();
+    _documentApi = widget.documentApi ??
+        HttpDocumentApi(
+          authSession: AuthSession(
+            authApi: HttpAuthApi(),
+            identityStorage: _identityStorage,
+          ),
+        );
     _load();
   }
 
   Future<void> _load() async {
-    final identity = await _identityStorage.load();
-    if (identity == null) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'No identity found on this device.';
-      });
-      return;
-    }
-    _userId = identity.userId;
     try {
-      final detail = await _documentApi.getDocument(widget.documentId, identity.userId);
+      final detail = await _documentApi.getDocument(widget.documentId);
       if (!mounted) return;
       setState(() {
         _detail = detail;
+      });
+    } on UnknownIdentityException {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'This device\'s identity is no longer recognised.';
       });
     } catch (_) {
       if (!mounted) return;
@@ -62,8 +65,7 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
 
   Future<void> _confirmSignature() async {
     final detail = _detail;
-    final userId = _userId;
-    if (detail == null || userId == null || detail.signingPayload == null) return;
+    if (detail == null || detail.signingPayload == null) return;
 
     setState(() {
       _isSigning = true;
@@ -86,7 +88,7 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
         detail.signingPayload!,
       );
 
-      final result = await _documentApi.submitSignature(widget.documentId, userId, signatureBytes);
+      final result = await _documentApi.submitSignature(widget.documentId, signatureBytes);
 
       if (!mounted) return;
 
