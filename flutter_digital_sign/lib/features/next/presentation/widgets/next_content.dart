@@ -76,7 +76,21 @@ class _NextContentState extends State<NextContent> {
     final file = await FilePicker.pickFile();
     if (file == null) return;
     final bytes = await file.readAsBytes();
-    final result = await widget.documentApi.uploadDocument(file.name, bytes);
+
+    final UploadResult result;
+    try {
+      result = await widget.documentApi.uploadDocument(file.name, bytes);
+    } on UnknownIdentityException {
+      await _recoverFromStaleIdentity();
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to upload document.')),
+      );
+      return;
+    }
+
     if (!mounted) return;
     switch (result) {
       case UploadSuccess():

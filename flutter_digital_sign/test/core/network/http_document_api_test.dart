@@ -196,6 +196,23 @@ void main() {
       expect(result, isA<UploadFailure>());
       expect((result as UploadFailure).message, 'title and fileBytes are required strings');
     });
+
+    test('returns UploadFailure when a repeated 401 answers with a plain-text body', () async {
+      // Hono's jwt middleware answers a rejected token with the plain text
+      // "Unauthorized", which is not decodable JSON.
+      var calls = 0;
+      final mockClient = MockClient((request) async {
+        calls++;
+        return http.Response('Unauthorized', 401);
+      });
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.uploadDocument('Contract.pdf', [1, 2, 3]);
+
+      expect(calls, 2);
+      expect(result, isA<UploadFailure>());
+      expect((result as UploadFailure).message, 'Upload failed');
+    });
   });
 
   group('HttpDocumentApi.submitSignature', () {
@@ -230,6 +247,16 @@ void main() {
 
       expect(result, isA<SignFailure>());
       expect((result as SignFailure).message, 'User user-1 has already signed this document');
+    });
+
+    test('returns SignFailure when a repeated 401 answers with a plain-text body', () async {
+      final mockClient = MockClient((request) async => http.Response('Unauthorized', 401));
+      final api = HttpDocumentApi(client: mockClient, authSession: await aSession());
+
+      final result = await api.submitSignature('doc-1', [9, 9, 9]);
+
+      expect(result, isA<SignFailure>());
+      expect((result as SignFailure).message, 'Signing failed');
     });
   });
 }

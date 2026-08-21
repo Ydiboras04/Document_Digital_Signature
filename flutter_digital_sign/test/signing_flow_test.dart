@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_digital_sign/app/routes/app_routes.dart';
 import 'package:flutter_digital_sign/features/next/presentation/pages/document_details_page.dart';
+import 'package:flutter_digital_sign/core/network/auth_api.dart';
 import 'package:flutter_digital_sign/core/network/document_api.dart';
 import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
 import 'core/network/fake_document_api.dart';
@@ -50,6 +52,68 @@ void main() {
     expect(fakeApi.signCalls.first.documentId, 'doc-1');
     expect(fakeApi.signCalls.first.signatureBytes, hasLength(64));
     expect(find.text('Signature Confirmed'), findsOneWidget);
+  });
+
+  testWidgets('recovers from a stale identity while loading the document', (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = (documentId) => throw UnknownIdentityException();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {
+          AppRoutes.register: (context) => const Scaffold(body: Text('Register Page')),
+        },
+        home: DocumentDetailsPage(
+          documentId: 'doc-1',
+          documentApi: fakeApi,
+          identityStorage: IdentityStorage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Register Page'), findsOneWidget);
+    expect(
+      find.text('This device\'s identity is no longer recognised. Please register again.'),
+      findsOneWidget,
+    );
+    expect(await IdentityStorage().load(), isNull);
+  });
+
+  testWidgets('recovers from a stale identity while signing', (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = ((documentId) => DocumentDetail(
+            id: 'doc-1',
+            title: 'Contract_Proposal.pdf',
+            uploaderId: 'user-2',
+            signatures: [],
+            signedByUser: false,
+            signingPayload: [1, 2, 3],
+          ))
+      ..onSubmitSignature = ((documentId, signatureBytes) => throw UnknownIdentityException());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {
+          AppRoutes.register: (context) => const Scaffold(body: Text('Register Page')),
+        },
+        home: DocumentDetailsPage(
+          documentId: 'doc-1',
+          documentApi: fakeApi,
+          identityStorage: IdentityStorage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm Signature'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Register Page'), findsOneWidget);
+    expect(find.text('Failed to sign document.'), findsNothing);
+    expect(await IdentityStorage().load(), isNull);
   });
 
   testWidgets('shows a read-only view for a document already signed by this user', (tester) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'signing_confirmation_page.dart';
+import '../../../../app/routes/app_routes.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/crypto/ed25519_key_pair.dart';
 import '../../../../core/network/auth_api.dart';
@@ -51,16 +52,25 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
         _detail = detail;
       });
     } on UnknownIdentityException {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'This device\'s identity is no longer recognised.';
-      });
+      await _recoverFromStaleIdentity();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Failed to load document.';
       });
     }
+  }
+
+  /// The server does not know this device's identity -- most likely the
+  /// database was rebuilt. The private key can never be re-associated, so the
+  /// only way forward is to discard it and register again.
+  Future<void> _recoverFromStaleIdentity() async {
+    await _identityStorage.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This device\'s identity is no longer recognised. Please register again.')),
+    );
+    Navigator.pushReplacementNamed(context, AppRoutes.register);
   }
 
   Future<void> _confirmSignature() async {
@@ -111,6 +121,13 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
             _errorMessage = message;
           });
       }
+    } on UnknownIdentityException {
+      if (mounted) {
+        setState(() {
+          _isSigning = false;
+        });
+      }
+      await _recoverFromStaleIdentity();
     } catch (_) {
       if (!mounted) return;
       setState(() {

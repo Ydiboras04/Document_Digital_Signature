@@ -127,6 +127,20 @@ class HttpDocumentApi implements DocumentApi {
         'Authorization': 'Bearer $token',
       };
 
+  /// Extracts an error message from a non-success response. Not every failure
+  /// carries a JSON body -- Hono's jwt middleware answers a rejected token with
+  /// the plain text `Unauthorized` -- so a body that will not decode falls back
+  /// to [fallback] rather than throwing a FormatException at the caller.
+  String _errorMessage(http.Response response, String fallback) {
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final error = body['error'] as Map<String, dynamic>?;
+      return error?['message'] as String? ?? fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   @override
   Future<List<DocumentSummary>> listDocuments() async {
     final response = await _send(
@@ -161,14 +175,12 @@ class HttpDocumentApi implements DocumentApi {
       ),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (response.statusCode == 201) {
-      return UploadSuccess(body['id'] as String);
+    if (response.statusCode != 201) {
+      return UploadFailure(_errorMessage(response, 'Upload failed'));
     }
 
-    final error = body['error'] as Map<String, dynamic>?;
-    return UploadFailure(error?['message'] as String? ?? 'Upload failed');
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return UploadSuccess(body['id'] as String);
   }
 
   @override
@@ -181,12 +193,10 @@ class HttpDocumentApi implements DocumentApi {
       ),
     );
 
-    if (response.statusCode == 201) {
-      return SignSuccess();
+    if (response.statusCode != 201) {
+      return SignFailure(_errorMessage(response, 'Signing failed'));
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final error = body['error'] as Map<String, dynamic>?;
-    return SignFailure(error?['message'] as String? ?? 'Signing failed');
+    return SignSuccess();
   }
 }

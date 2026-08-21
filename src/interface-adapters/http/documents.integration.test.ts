@@ -6,10 +6,12 @@ import { ed25519TestKeys, signWithTestKey } from '../../infrastructure/testing/e
 import { authTokenFor, bearer } from './authTestSupport.js'
 
 let aliceToken: string
+let bobToken: string
 
 beforeAll(async () => {
   await ensureSeedUsers()
   aliceToken = await authTokenFor('user-alice', ed25519TestKeys.alice)
+  bobToken = await authTokenFor('user-bob', ed25519TestKeys.bob)
 })
 
 async function uploadADocument() {
@@ -94,6 +96,7 @@ describe('POST /documents', () => {
     expect(body.title).toBe('Contract')
     expect(body.uploaderId).toBe('user-alice')
     expect(typeof body.id).toBe('string')
+    expect(typeof body.originalHash).toBe('string')
   })
 
   it('returns 400 when title is missing', async () => {
@@ -156,6 +159,17 @@ describe('GET /documents/:documentId/verify', () => {
     expect(body.signatures).toHaveLength(1)
   })
 
+  it('returns valid: true with an empty chain for a document with no signatures', async () => {
+    const document = await uploadADocument()
+
+    const verifyRes = await app.request(`/documents/${document.id}/verify`, { headers: bearer(aliceToken) })
+
+    expect(verifyRes.status).toBe(200)
+    const body = await verifyRes.json()
+    expect(body.valid).toBe(true)
+    expect(body.signatures).toEqual([])
+  })
+
   it('returns 404 when verifying a document that does not exist', async () => {
     const res = await app.request('/documents/missing-doc/verify', { headers: bearer(aliceToken) })
 
@@ -209,6 +223,24 @@ describe('GET /documents/:documentId', () => {
     const body = await res.json()
     expect(body.signedByUser).toBe(true)
     expect(body.signingPayload).toBeNull()
+  })
+
+  it('reports signedByUser: false to another user after alice signs', async () => {
+    const document = await uploadADocument()
+    const signatureBytes = computeAliceSignatureBytes(document.originalHash)
+    const signRes = await app.request(`/documents/${document.id}/signatures`, {
+      method: 'POST',
+      headers: bearer(aliceToken),
+      body: JSON.stringify({ signatureBytes: Buffer.from(signatureBytes).toString('base64') })
+    })
+    expect(signRes.status).toBe(201)
+
+    const asAlice = await (await app.request(`/documents/${document.id}`, { headers: bearer(aliceToken) })).json()
+    const asBob = await (await app.request(`/documents/${document.id}`, { headers: bearer(bobToken) })).json()
+
+    expect(asAlice.signedByUser).toBe(true)
+    expect(asBob.signedByUser).toBe(false)
+    expect(asBob.signingPayload).not.toBeNull()
   })
 
   it('returns 404 for a document that does not exist', async () => {
