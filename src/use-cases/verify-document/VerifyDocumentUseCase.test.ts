@@ -89,7 +89,7 @@ describe('VerifyDocumentUseCase', () => {
     const result = await useCase.execute({ documentId: document.id })
 
     expect(result.isOk()).toBe(true)
-    expect(result.value.map((s) => s.id)).toEqual(['sig-1', 'sig-2'])
+    expect(result.value.map((s) => s.userId)).toEqual(['user-1', 'user-2'])
   })
 
   it('returns an empty array for a document with no signatures yet', async () => {
@@ -156,5 +156,39 @@ describe('VerifyDocumentUseCase', () => {
 
     expect(result.isFail()).toBe(true)
     expect(result.error).toBeInstanceOf(BrokenChainError)
+  })
+
+  it('resolves each verified signature to the signer name and email', async () => {
+    const { crypto, documentRepository, userRepository, signatureRepository, useCase } = setup()
+    const document = aDocument()
+    await documentRepository.save(document)
+
+    const user = aUser('user-1', 1)
+    userRepository.users.push(user)
+
+    const message = crypto.hash(document.originalHash.toBytes())
+    const signedAt = new Date('2026-08-10T00:00:00Z')
+    signatureRepository.savedSignatures.push(
+      Signature.create({
+        id: 'sig-1',
+        documentId: document.id,
+        userId: user.id,
+        previousSignatureId: null,
+        signatureData: crypto.sign(user.publicKey, message),
+        signedAt
+      }).value
+    )
+
+    const result = await useCase.execute({ documentId: document.id })
+
+    expect(result.isOk()).toBe(true)
+    expect(result.value).toEqual([
+      {
+        userId: 'user-1',
+        username: user.username,
+        email: user.email,
+        signedAt
+      }
+    ])
   })
 })

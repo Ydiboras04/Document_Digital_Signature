@@ -1,5 +1,6 @@
 import { Result } from '../../domain/result/Result.js'
 import { Signature } from '../../domain/entities/Signature.js'
+import { User } from '../../domain/entities/User.js'
 import { PublicKey } from '../../domain/value-objects/PublicKey.js'
 import { DocumentNotFoundError } from '../../domain/errors/DocumentNotFoundError.js'
 import { UserNotFoundError } from '../../domain/errors/UserNotFoundError.js'
@@ -13,6 +14,13 @@ export interface VerifyDocumentInput {
   documentId: string
 }
 
+export interface VerifiedSignatureDto {
+  userId: string
+  username: string
+  email: string
+  signedAt: Date
+}
+
 export type VerifyDocumentError = DocumentNotFoundError | UserNotFoundError | BrokenChainError
 
 export class VerifyDocumentUseCase {
@@ -23,7 +31,7 @@ export class VerifyDocumentUseCase {
     private readonly signatureChainService: SignatureChainService
   ) {}
 
-  async execute(input: VerifyDocumentInput): Promise<Result<Signature[], VerifyDocumentError>> {
+  async execute(input: VerifyDocumentInput): Promise<Result<VerifiedSignatureDto[], VerifyDocumentError>> {
     const document = await this.documentRepository.findById(input.documentId)
     if (document === null) {
       return Result.fail(new DocumentNotFoundError(input.documentId))
@@ -37,6 +45,7 @@ export class VerifyDocumentUseCase {
     }
     const orderedSignatures = orderedResult.value
 
+    const usersById = new Map<string, User>()
     const publicKeysByUserId = new Map<string, PublicKey>()
     const uniqueUserIds = [...new Set(orderedSignatures.map((s) => s.userId))]
     for (const userId of uniqueUserIds) {
@@ -44,6 +53,7 @@ export class VerifyDocumentUseCase {
       if (user === null) {
         return Result.fail(new UserNotFoundError(userId))
       }
+      usersById.set(userId, user)
       publicKeysByUserId.set(userId, user.publicKey)
     }
 
@@ -52,6 +62,19 @@ export class VerifyDocumentUseCase {
       return Result.fail(verifyResult.error)
     }
 
-    return Result.ok(orderedSignatures)
+    // Reached only after verifyChain succeeded, so every entry here is a
+    // signature that actually verified against its signer's public key --
+    // which is the whole claim the verification screen makes.
+    return Result.ok(
+      orderedSignatures.map((signature) => {
+        const user = usersById.get(signature.userId)!
+        return {
+          userId: signature.userId,
+          username: user.username,
+          email: user.email,
+          signedAt: signature.signedAt
+        }
+      })
+    )
   }
 }
