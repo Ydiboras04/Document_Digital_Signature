@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { jwt } from 'hono/jwt'
 import { health } from './routes/health.js'
 import { createDocumentsRoutes } from './routes/documents.js'
 import { createUsersRoutes } from './routes/users.js'
@@ -11,6 +12,9 @@ export const app = new Hono()
 const dependencies = createDependencies()
 
 app.use('*', cors())
+
+app.use('/documents', jwt({ secret: dependencies.jwtSecret, alg: 'HS256' }))
+app.use('/documents/*', jwt({ secret: dependencies.jwtSecret, alg: 'HS256' }))
 
 app.route('/', health)
 app.route('/', createDocumentsRoutes(dependencies))

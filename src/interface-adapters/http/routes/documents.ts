@@ -3,27 +3,24 @@ import type { Dependencies } from '../../../infrastructure/composition.js'
 import { toDocumentJson, toSignatureJson, decodeBase64, toDocumentDetailJson } from '../serialization.js'
 import { mapDomainErrorToResponse } from '../errorMapping.js'
 import { DocumentNotFoundError } from '../../../domain/errors/DocumentNotFoundError.js'
+import { getAuthenticatedUserId } from '../authContext.js'
 
 export function createDocumentsRoutes(dependencies: Dependencies): Hono {
   const documents = new Hono()
 
   documents.post('/documents', async (c) => {
+    const uploaderId = getAuthenticatedUserId(c)
     const body = await c.req.json().catch(() => null)
-    if (
-      body === null ||
-      typeof body.title !== 'string' ||
-      typeof body.uploaderId !== 'string' ||
-      typeof body.fileBytes !== 'string'
-    ) {
+    if (body === null || typeof body.title !== 'string' || typeof body.fileBytes !== 'string') {
       return c.json(
-        { error: { type: 'ValidationError', message: 'title, uploaderId, and fileBytes are required strings' } },
+        { error: { type: 'ValidationError', message: 'title and fileBytes are required strings' } },
         400
       )
     }
 
     const result = await dependencies.uploadDocumentUseCase.execute({
       title: body.title,
-      uploaderId: body.uploaderId,
+      uploaderId,
       fileBytes: decodeBase64(body.fileBytes)
     })
 
@@ -36,18 +33,16 @@ export function createDocumentsRoutes(dependencies: Dependencies): Hono {
   })
 
   documents.post('/documents/:documentId/signatures', async (c) => {
+    const userId = getAuthenticatedUserId(c)
     const documentId = c.req.param('documentId')
     const body = await c.req.json().catch(() => null)
-    if (body === null || typeof body.userId !== 'string' || typeof body.signatureBytes !== 'string') {
-      return c.json(
-        { error: { type: 'ValidationError', message: 'userId and signatureBytes are required strings' } },
-        400
-      )
+    if (body === null || typeof body.signatureBytes !== 'string') {
+      return c.json({ error: { type: 'ValidationError', message: 'signatureBytes is required' } }, 400)
     }
 
     const result = await dependencies.signDocumentUseCase.execute({
       documentId,
-      userId: body.userId,
+      userId,
       signatureBytes: decodeBase64(body.signatureBytes)
     })
 
@@ -77,21 +72,15 @@ export function createDocumentsRoutes(dependencies: Dependencies): Hono {
   })
 
   documents.get('/documents', async (c) => {
-    const userId = c.req.query('userId')
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return c.json({ error: { type: 'ValidationError', message: 'userId query parameter is required' } }, 400)
-    }
+    const userId = getAuthenticatedUserId(c)
 
     const summaries = await dependencies.listDocumentsUseCase.execute({ userId })
     return c.json(summaries, 200)
   })
 
   documents.get('/documents/:documentId', async (c) => {
+    const userId = getAuthenticatedUserId(c)
     const documentId = c.req.param('documentId')
-    const userId = c.req.query('userId')
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return c.json({ error: { type: 'ValidationError', message: 'userId query parameter is required' } }, 400)
-    }
 
     const result = await dependencies.getDocumentUseCase.execute({ documentId, userId })
     if (result.isFail()) {
