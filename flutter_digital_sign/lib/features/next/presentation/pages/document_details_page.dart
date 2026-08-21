@@ -92,12 +92,17 @@ class _DocumentDetailsPageState extends State<DocumentDetailsPage> {
 
       switch (result) {
         case SignSuccess():
-          Navigator.push(
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => SigningConfirmationPage(documentName: detail.title),
             ),
           );
+          if (!mounted) return;
+          setState(() {
+            _isSigning = false;
+          });
+          await _load();
         case SignFailure(message: final message):
           setState(() {
             _isSigning = false;

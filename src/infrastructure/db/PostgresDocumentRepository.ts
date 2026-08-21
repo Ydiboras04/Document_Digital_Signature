@@ -32,7 +32,7 @@ export class PostgresDocumentRepository implements DocumentRepository {
   }
 
   async findAll(): Promise<Document[]> {
-    const rows = await db.select().from(documents)
+    const rows = await db.select().from(documents).orderBy(documents.id)
     return rows.map((row) =>
       Document.create({
         id: row.id,

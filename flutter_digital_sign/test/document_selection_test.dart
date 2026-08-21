@@ -73,4 +73,42 @@ void main() {
 
     expect(find.text('Signed'), findsOneWidget);
   });
+
+  testWidgets('Retry button reloads the document list after a failed load', (tester) async {
+    await saveIdentity();
+    var callCount = 0;
+    final fakeApi = FakeDocumentApi()
+      ..onListDocuments = (userId) {
+        callCount++;
+        if (callCount == 1) {
+          throw Exception('network blip');
+        }
+        return [
+          DocumentSummary(
+            id: 'doc-1',
+            title: 'Contract_Proposal.pdf',
+            uploaderId: 'user-1',
+            signedByUser: false,
+          ),
+        ];
+      };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NextPage(documentApi: fakeApi, identityStorage: IdentityStorage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Failed to load documents.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Contract_Proposal.pdf'), findsNothing);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Failed to load documents.'), findsNothing);
+    expect(find.text('Contract_Proposal.pdf'), findsOneWidget);
+    expect(callCount, 2);
+  });
 }

@@ -97,7 +97,21 @@ class _NextContentState extends State<NextContent> {
           ),
           const SizedBox(height: 20),
           if (_errorMessage != null)
-            Expanded(child: Center(child: Text(_errorMessage!)))
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_errorMessage!),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _loadDocuments,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else if (_documents == null)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else

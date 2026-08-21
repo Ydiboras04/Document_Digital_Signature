@@ -132,4 +132,51 @@ void main() {
     expect(find.text('Documents'), findsOneWidget);
     expect(find.text('Signature Confirmed'), findsNothing);
   });
+
+  testWidgets('returning via the confirmation page back arrow refreshes the details page', (tester) async {
+    await saveIdentity();
+    var getCallCount = 0;
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = (documentId, userId) {
+        getCallCount++;
+        final alreadySigned = getCallCount > 1;
+        return DocumentDetail(
+          id: 'doc-1',
+          title: 'Contract_Proposal.pdf',
+          uploaderId: 'user-2',
+          signatures: alreadySigned
+              ? [DocumentSignature(userId: 'user-1', signedAt: DateTime.utc(2026, 8, 20))]
+              : [],
+          signedByUser: alreadySigned,
+          signingPayload: alreadySigned ? null : [1, 2, 3],
+        );
+      };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DocumentDetailsPage(
+          documentId: 'doc-1',
+          documentApi: fakeApi,
+          identityStorage: IdentityStorage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm Signature'), findsOneWidget);
+
+    await tester.tap(find.text('Confirm Signature'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Signature Confirmed'), findsOneWidget);
+
+    // Return to DocumentDetailsPage via the confirmation page's AppBar back
+    // arrow instead of "Back to Documents".
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Signature Confirmed'), findsNothing);
+    expect(find.text('Confirm Signature'), findsNothing);
+    expect(find.textContaining('already signed'), findsOneWidget);
+  });
 }

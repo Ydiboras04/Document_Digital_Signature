@@ -52,4 +52,15 @@ describe('PostgresDocumentRepository', () => {
 
     expect(found.map((d) => d.id).sort()).toEqual(['doc-1', 'doc-2'])
   })
+
+  it('returns documents in a deterministic order regardless of insertion order', async () => {
+    const repository = new PostgresDocumentRepository()
+    await repository.save(aDocument('doc-b'))
+    await repository.save(aDocument('doc-a'))
+    await repository.save(aDocument('doc-c'))
+
+    const found = await repository.findAll()
+
+    expect(found.map((d) => d.id)).toEqual(['doc-a', 'doc-b', 'doc-c'])
+  })
 })
