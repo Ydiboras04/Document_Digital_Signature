@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../app/routes/app_routes.dart';
 
 class SigningConfirmationPage extends StatelessWidget {
   final String documentName;
@@ -61,7 +62,7 @@ class SigningConfirmationPage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.popUntil(context, (route) => route.isFirst);
+                  Navigator.popUntil(context, ModalRoute.withName(AppRoutes.next));
                 },
                 child: const Text('Back to Documents'),
               ),

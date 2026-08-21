@@ -29,9 +29,9 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const NextPage());
       case documentDetails:
         final args = settings.arguments as Map<String, String>? ?? {};
-        final documentName = args['documentName'] ?? 'Document.pdf';
+        final documentId = args['documentId'] ?? '';
         return MaterialPageRoute(
-          builder: (_) => DocumentDetailsPage(documentName: documentName),
+          builder: (_) => DocumentDetailsPage(documentId: documentId),
         );
       case signingConfirmation:
         final args = settings.arguments as Map<String, String>? ?? {};

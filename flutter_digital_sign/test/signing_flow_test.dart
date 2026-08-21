@@ -1,39 +1,135 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_digital_sign/features/next/presentation/pages/document_details_page.dart';
-import 'package:flutter_digital_sign/features/next/presentation/pages/signing_confirmation_page.dart';
+import 'package:flutter_digital_sign/core/network/document_api.dart';
+import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
+import 'core/network/fake_document_api.dart';
 
 void main() {
-  testWidgets('shows selected PDF details and confirmation page', (tester) async {
+  setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
+  });
+
+  Future<void> saveIdentity() async {
+    await IdentityStorage().save('user-1', [1, 2, 3], List.generate(32, (i) => i));
+  }
+
+  testWidgets('shows document details and signs successfully', (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = (documentId, userId) => DocumentDetail(
+            id: 'doc-1',
+            title: 'Contract_Proposal.pdf',
+            uploaderId: 'user-2',
+            signatures: [],
+            signedByUser: false,
+            signingPayload: [1, 2, 3],
+          );
+
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: DocumentDetailsPage(
-          documentName: 'Contract_Proposal.pdf',
+          documentId: 'doc-1',
+          documentApi: fakeApi,
+          identityStorage: IdentityStorage(),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('Document Details'), findsOneWidget);
-    expect(find.text('Contract_Proposal.pdf'), findsWidgets);
+    expect(find.text('Contract_Proposal.pdf'), findsOneWidget);
+    expect(find.text('Confirm Signature'), findsOneWidget);
 
     await tester.tap(find.text('Confirm Signature'));
     await tester.pumpAndSettle();
 
+    expect(fakeApi.signCalls, hasLength(1));
+    expect(fakeApi.signCalls.first.documentId, 'doc-1');
+    expect(fakeApi.signCalls.first.userId, 'user-1');
     expect(find.text('Signature Confirmed'), findsOneWidget);
-    expect(find.text('Your document has been signed successfully.'), findsOneWidget);
   });
 
-  testWidgets('confirmation page renders a success message', (tester) async {
+  testWidgets('shows a read-only view for a document already signed by this user', (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = (documentId, userId) => DocumentDetail(
+            id: 'doc-1',
+            title: 'Contract_Proposal.pdf',
+            uploaderId: 'user-2',
+            signatures: [DocumentSignature(userId: 'user-1', signedAt: DateTime.utc(2026, 8, 20))],
+            signedByUser: true,
+            signingPayload: null,
+          );
+
     await tester.pumpWidget(
-      const MaterialApp(
-        home: SigningConfirmationPage(
-          documentName: 'Invoice_2026_08.pdf',
+      MaterialApp(
+        home: DocumentDetailsPage(
+          documentId: 'doc-1',
+          documentApi: fakeApi,
+          identityStorage: IdentityStorage(),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('Signature Confirmed'), findsOneWidget);
-    expect(find.text('Invoice_2026_08.pdf'), findsWidgets);
+    expect(find.text('Confirm Signature'), findsNothing);
+    expect(find.textContaining('already signed'), findsOneWidget);
+  });
+
+  testWidgets('confirmation page returns to the document list, not Welcome', (tester) async {
+    await saveIdentity();
+    final fakeApi = FakeDocumentApi()
+      ..onGetDocument = (documentId, userId) => DocumentDetail(
+            id: 'doc-1',
+            title: 'Contract_Proposal.pdf',
+            uploaderId: 'user-2',
+            signatures: [],
+            signedByUser: false,
+            signingPayload: [1, 2, 3],
+          );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: GlobalKey<NavigatorState>(),
+        onGenerateRoute: (settings) {
+          if (settings.name == '/next') {
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const Scaffold(body: Text('Documents')),
+            );
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => DocumentDetailsPage(
+              documentId: 'doc-1',
+              documentApi: fakeApi,
+              identityStorage: IdentityStorage(),
+            ),
+          );
+        },
+        initialRoute: '/next',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(MaterialPageRoute(
+      builder: (_) => DocumentDetailsPage(
+        documentId: 'doc-1',
+        documentApi: fakeApi,
+        identityStorage: IdentityStorage(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm Signature'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Back to Documents'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Documents'), findsOneWidget);
+    expect(find.text('Signature Confirmed'), findsNothing);
   });
 }

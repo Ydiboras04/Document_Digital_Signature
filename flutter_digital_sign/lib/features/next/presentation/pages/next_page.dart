@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-
 import '../widgets/next_content.dart';
+import '../../../../core/network/document_api.dart';
+import '../../../../core/storage/identity_storage.dart';
 
 class NextPage extends StatelessWidget {
-  const NextPage({super.key});
+  final DocumentApi? documentApi;
+  final IdentityStorage? identityStorage;
+
+  const NextPage({super.key, this.documentApi, this.identityStorage});
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +15,10 @@ class NextPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Digital Signature'),
       ),
-      body: const NextContent(),
+      body: NextContent(
+        documentApi: documentApi ?? HttpDocumentApi(),
+        identityStorage: identityStorage ?? IdentityStorage(),
+      ),
     );
   }
 }
