@@ -12,7 +12,8 @@
     "start": "node --env-file=.env dist/interface-adapters/http/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx --env-file=.env src/infrastructure/db/seed.ts"
+    "db:seed": "tsx --env-file=.env src/infrastructure/db/seed.ts",
+    "db:promote-admin": "tsx --env-file=.env src/infrastructure/db/promoteAdmin.ts"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
