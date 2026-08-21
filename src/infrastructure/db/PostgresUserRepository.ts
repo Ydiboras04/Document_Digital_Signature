@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { User } from '../../domain/entities/User.js'
 import { PublicKey } from '../../domain/value-objects/PublicKey.js'
 import { UserRepository } from '../../use-cases/ports/UserRepository.js'
@@ -47,11 +47,21 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   /**
-   * The only code in the system that can grant admin. Deliberately not on the
-   * UserRepository port: promotion is an operations concern with no use case
-   * behind it, reached only by the db:promote-admin script.
+   * The only code in the system that can grant or revoke admin. Deliberately
+   * not on the UserRepository port: changing a role is an operations concern
+   * with no use case behind it, reached only by the db:promote-admin and
+   * db:demote-admin scripts.
    */
   async setAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
     await db.update(users).set({ isAdmin }).where(eq(users.id, userId))
+  }
+
+  /**
+   * Supports the demote script's last-admin guard. Also operations-only, and
+   * so also off the port -- no use case asks how many admins exist.
+   */
+  async countAdmins(): Promise<number> {
+    const rows = await db.select({ value: count() }).from(users).where(eq(users.isAdmin, true))
+    return rows[0]?.value ?? 0
   }
 }

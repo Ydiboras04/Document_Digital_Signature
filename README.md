@@ -143,4 +143,8 @@ Only one endpoint requires the admin role (`POST /documents`), and by design **t
 
 Note that the same delay cuts the other way here: a revoked admin keeps whatever privileges their current token carries until it expires, up to an hour. If you are revoking someone urgently rather than tidying up, rotate `JWT_SECRET` and restart the server — that invalidates every issued token at once, forcing all users to re-authenticate and pick up their current roles.
 
-Nothing stops you demoting the last remaining admin. Doing so leaves the deployment with nobody able to upload or verify until you promote someone again — recoverable with one more script run, but worth noticing before you run it.
+Demoting the **last** remaining admin is refused, because it would leave nobody able to upload or verify and there is no HTTP path back. Promote a replacement first, or pass `--force` if leaving zero admins is genuinely what you want:
+
+```
+npm run db:demote-admin -- <email> --force
+```

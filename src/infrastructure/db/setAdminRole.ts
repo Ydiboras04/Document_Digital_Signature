@@ -53,7 +53,9 @@ async function setAdminRole(): Promise<void> {
   const copy = MODES[mode]
   const shouldBeAdmin = mode === 'promote'
 
-  const email = process.argv[3]
+  const operatorArgs = process.argv.slice(3)
+  const force = operatorArgs.includes('--force')
+  const email = operatorArgs.find((arg) => arg !== '--force')
   if (email === undefined || email.length === 0) {
     console.error(`Usage: npm run ${copy.command} -- <email>`)
     process.exit(1)
@@ -71,6 +73,21 @@ async function setAdminRole(): Promise<void> {
   if (user.isAdmin === shouldBeAdmin) {
     console.log(copy.alreadyMessage(user.username, email))
     process.exit(0)
+  }
+
+  if (!shouldBeAdmin && !force && (await repository.countAdmins()) === 1) {
+    // Recoverable -- another run of db:promote-admin undoes it -- but while it
+    // lasts nobody can upload or verify, and there is no HTTP path back.
+    // Worth stopping for rather than discovering afterwards.
+    console.error(
+      `${user.username} <${email}> is the only admin. Demoting them would leave nobody able to ` +
+        'upload or verify documents, and admin cannot be granted over HTTP.'
+    )
+    console.error(
+      `Promote a replacement first, or re-run with --force if leaving zero admins is intended: ` +
+        `npm run ${copy.command} -- ${email} --force`
+    )
+    process.exit(1)
   }
 
   await repository.setAdminStatus(user.id, shouldBeAdmin)

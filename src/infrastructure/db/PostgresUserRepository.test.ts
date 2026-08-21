@@ -76,8 +76,9 @@ describe('PostgresUserRepository', () => {
   it('round-trips an admin user', async () => {
     const repository = new PostgresUserRepository()
     const email = `erin-${randomUUID()}@example.com`
+    const id = randomUUID()
     const user = User.create({
-      id: randomUUID(),
+      id,
       username: 'erin',
       email,
       publicKey: PublicKey.create(new Uint8Array(32).fill(8)).value,
@@ -87,6 +88,36 @@ describe('PostgresUserRepository', () => {
     await repository.save(user)
 
     expect((await repository.findByEmail(email))!.isAdmin).toBe(true)
+
+    // Demote before finishing. cleanDatabase deliberately never clears users,
+    // so an admin left behind here accumulates one per run -- and a database
+    // full of stray admins silently defeats the db:demote-admin last-admin
+    // guard, which is exactly what happened before this line existed.
+    await repository.setAdminStatus(id, false)
+  })
+
+  it('countAdmins tracks admins as their roles change', async () => {
+    const repository = new PostgresUserRepository()
+    // Measured as a delta rather than an absolute: cleanDatabase deliberately
+    // never clears users, so this table carries rows from every prior run.
+    const before = await repository.countAdmins()
+    const id = randomUUID()
+    await repository.save(
+      User.create({
+        id,
+        username: 'grace',
+        email: `grace-${randomUUID()}@example.com`,
+        publicKey: PublicKey.create(new Uint8Array(32).fill(6)).value
+      }).value
+    )
+
+    expect(await repository.countAdmins()).toBe(before)
+
+    await repository.setAdminStatus(id, true)
+    expect(await repository.countAdmins()).toBe(before + 1)
+
+    await repository.setAdminStatus(id, false)
+    expect(await repository.countAdmins()).toBe(before)
   })
 
   it('setAdminStatus promotes and demotes an existing user', async () => {
