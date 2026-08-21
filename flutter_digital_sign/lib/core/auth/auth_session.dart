@@ -57,6 +57,30 @@ class AuthSession {
     return token;
   }
 
+  /// Reads the `isAdmin` claim from the current session token.
+  ///
+  /// This is a UI affordance, not a security boundary: the signature is never
+  /// checked here, and a modified client could return true regardless. The
+  /// server enforces the restriction and returns 403. All this does is avoid
+  /// offering an action we know would fail.
+  ///
+  /// Anything unreadable -- wrong shape, bad base64, absent claim -- is false,
+  /// so the failure direction is always toward fewer capabilities.
+  Future<bool> isAdmin() async {
+    final jwt = await token();
+    final parts = jwt.split('.');
+    if (parts.length != 3) {
+      return false;
+    }
+    try {
+      final decoded = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = jsonDecode(decoded) as Map<String, dynamic>;
+      return payload['isAdmin'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void invalidate() {
     _token = null;
   }

@@ -7,6 +7,7 @@ import 'package:flutter_digital_sign/core/auth/auth_session.dart';
 import 'package:flutter_digital_sign/core/network/auth_api.dart';
 import 'package:flutter_digital_sign/core/storage/identity_storage.dart';
 import '../network/fake_auth_api.dart';
+import 'jwt_test_helper.dart';
 
 void main() {
   setUp(() {
@@ -101,5 +102,53 @@ void main() {
     final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
 
     expect(() => session.token(), throwsA(isA<UnknownIdentityException>()));
+  });
+
+  test('isAdmin is true when the token claims it', () async {
+    final identityStorage = await storageWithIdentity();
+    final fakeAuthApi = FakeAuthApi()
+      ..onExchangeForToken = ((userId, signature) => unsignedJwt({'sub': 'user-1', 'isAdmin': true}));
+    final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
+
+    expect(await session.isAdmin(), isTrue);
+  });
+
+  test('isAdmin is false when the token denies it', () async {
+    final identityStorage = await storageWithIdentity();
+    final fakeAuthApi = FakeAuthApi()
+      ..onExchangeForToken = ((userId, signature) => unsignedJwt({'sub': 'user-1', 'isAdmin': false}));
+    final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
+
+    expect(await session.isAdmin(), isFalse);
+  });
+
+  test('isAdmin is false when the token carries no claim at all', () async {
+    final identityStorage = await storageWithIdentity();
+    final fakeAuthApi = FakeAuthApi()
+      ..onExchangeForToken = ((userId, signature) => unsignedJwt({'sub': 'user-1'}));
+    final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
+
+    expect(await session.isAdmin(), isFalse);
+  });
+
+  test('isAdmin is false for a token that is not decodable at all', () async {
+    final identityStorage = await storageWithIdentity();
+    final fakeAuthApi = FakeAuthApi()
+      ..onExchangeForToken = ((userId, signature) => 'not-a-jwt');
+    final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
+
+    expect(await session.isAdmin(), isFalse);
+  });
+
+  test('isAdmin reuses the cached token rather than re-handshaking', () async {
+    final identityStorage = await storageWithIdentity();
+    final fakeAuthApi = FakeAuthApi()
+      ..onExchangeForToken = ((userId, signature) => unsignedJwt({'sub': 'user-1', 'isAdmin': true}));
+    final session = AuthSession(authApi: fakeAuthApi, identityStorage: identityStorage);
+
+    await session.token();
+    await session.isAdmin();
+
+    expect(fakeAuthApi.challengeCalls, hasLength(1));
   });
 }
