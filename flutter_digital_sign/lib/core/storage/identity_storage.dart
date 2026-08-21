@@ -48,4 +48,10 @@ class IdentityStorage {
       privateKeyBytes: base64Decode(privateKeyB64),
     );
   }
+
+  Future<void> clear() async {
+    await _storage.delete(key: _userIdKey);
+    await _storage.delete(key: _publicKeyKey);
+    await _storage.delete(key: _privateKeyKey);
+  }
 }

@@ -26,4 +26,13 @@ void main() {
     expect(identity.publicKeyBytes, [1, 2, 3]);
     expect(identity.privateKeyBytes, [4, 5, 6]);
   });
+
+  test('clear removes the saved identity', () async {
+    final storage = IdentityStorage();
+    await storage.save('user-123', [1, 2, 3], [4, 5, 6]);
+
+    await storage.clear();
+
+    expect(await storage.load(), isNull);
+  });
 }
