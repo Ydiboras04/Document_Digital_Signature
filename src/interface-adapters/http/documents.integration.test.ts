@@ -235,7 +235,7 @@ describe('GET /documents/:documentId/verify', () => {
     expect(verifyRes.status).toBe(200)
     const body = await verifyRes.json()
     expect(body.valid).toBe(false)
-    expect(typeof body.reason).toBe('string')
+    expect(body.reason).toMatch(/cryptographic verification failed/)
   })
 })
 

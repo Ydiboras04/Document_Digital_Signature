@@ -1,5 +1,4 @@
 import { Result } from '../../domain/result/Result.js'
-import { Signature } from '../../domain/entities/Signature.js'
 import { User } from '../../domain/entities/User.js'
 import { PublicKey } from '../../domain/value-objects/PublicKey.js'
 import { DocumentNotFoundError } from '../../domain/errors/DocumentNotFoundError.js'
