@@ -36,7 +36,10 @@ export class CreateUserUseCase {
       id: this.idGenerator.generate(),
       username: input.username,
       email: input.email,
-      publicKey: publicKeyResult.value
+      publicKey: publicKeyResult.value,
+      // Hardcoded, never read from input: registration is a public endpoint,
+      // so any role it could accept, anyone could claim.
+      isAdmin: false
     })
     if (userResult.isFail()) {
       return Result.fail(userResult.error)

@@ -7,6 +7,7 @@ export interface UserProps {
   username: string
   email: string
   publicKey: PublicKey
+  isAdmin?: boolean
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -41,5 +42,13 @@ export class User {
 
   get publicKey(): PublicKey {
     return this.props.publicKey
+  }
+
+  /**
+   * Defaults to false when unset: a user is never an administrator unless
+   * something says so explicitly. Only the promotion script can set it.
+   */
+  get isAdmin(): boolean {
+    return this.props.isAdmin ?? false
   }
 }

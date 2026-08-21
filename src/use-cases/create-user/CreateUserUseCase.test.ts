@@ -78,4 +78,17 @@ describe('CreateUserUseCase', () => {
     expect(result.isFail()).toBe(true)
     expect(result.error).toBeInstanceOf(InvalidUserError)
   })
+
+  it('always creates a non-admin user, even though admin exists as a concept', async () => {
+    const { useCase } = setup()
+
+    const result = await useCase.execute({
+      username: 'dave',
+      email: 'dave@example.com',
+      publicKeyBytes: new Uint8Array(32).fill(4)
+    })
+
+    expect(result.isOk()).toBe(true)
+    expect(result.value.isAdmin).toBe(false)
+  })
 })
